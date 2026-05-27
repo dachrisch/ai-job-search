@@ -1,5 +1,5 @@
 import { Anthropic } from '@anthropic-ai/sdk'
-import { UserModel } from '../db/models'
+import { UserModel } from '../db/models.js'
 
 interface ConversationMessage {
   role: 'user' | 'assistant'

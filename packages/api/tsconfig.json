@@ -4,7 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "paths": {
-      "@job-search/shared": ["../shared/src"]
+      "@job-search/shared": ["../shared/dist"]
     }
   },
   "include": ["src"],

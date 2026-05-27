@@ -1,13 +1,17 @@
 import { Queue, Worker } from 'bullmq'
-import redis from 'redis'
+import { createClient } from 'redis'
 
-const redisClient = redis.createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' })
+const redisConnection = {
+  host: 'localhost',
+  port: 6379,
+  ...(process.env.REDIS_URL && { url: process.env.REDIS_URL })
+}
 
 let eventQueue: Queue
 
 export function getQueue() {
   if (!eventQueue) {
-    eventQueue = new Queue('job-search-events', { connection: redisClient })
+    eventQueue = new Queue('job-search-events', { connection: redisConnection as any })
   }
   return eventQueue
 }
@@ -28,7 +32,7 @@ export function registerEventHandlers(handlers: Record<string, (data: any) => Pr
     } else {
       console.warn(`No handler for event: ${job.name}`)
     }
-  }, { connection: redisClient })
+  }, { connection: redisConnection as any })
 
   worker.on('completed', (job) => {
     console.log(`Event processed: ${job.name}`)

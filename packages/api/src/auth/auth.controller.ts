@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { registerUser, loginUser, setClaudeToken, verifyToken } from './auth.service'
+import { registerUser, loginUser, setClaudeToken, verifyToken } from './auth.service.js'
 
 export async function handleRegister(req: Request, res: Response, next: NextFunction) {
   try {

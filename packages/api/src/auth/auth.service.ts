@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { UserModel } from '../db/models'
+import { UserModel } from '../db/models.js'
 import { AuthResponse } from '@job-search/shared'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'

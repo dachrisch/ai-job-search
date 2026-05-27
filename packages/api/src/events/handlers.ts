@@ -1,6 +1,6 @@
-import { SearchSessionModel, JobModel, SiteModel } from '../db/models'
-import { addEvent } from './queue'
-import { callClaude } from '../claude/client'
+import { SearchSessionModel, JobModel, SiteModel } from '../db/models.js'
+import { addEvent } from './queue.js'
+import { callClaude } from '../claude/client.js'
 import axios from 'axios'
 
 export const eventHandlers = {

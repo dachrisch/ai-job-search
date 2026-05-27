@@ -9,5 +9,9 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspaces"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "mongodb-memory-server": "^11.1.0"
   }
 }
