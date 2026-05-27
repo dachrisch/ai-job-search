@@ -14,9 +14,9 @@
     "mongoose": "^8.0.0",
     "bullmq": "^5.77.3",
     "redis": "^4.6.0",
-    "anthropic": "^0.24.0",
+    "@anthropic-ai/sdk": "^0.28.0",
     "axios": "^1.6.0",
-    "jsonwebtoken": "^9.1.0",
+    "jsonwebtoken": "^9.0.3",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.3.1"
   },
