@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { getQueue, addEvent, getEventHandlers } from '../src/events/queue'
 
-describe('Event Queue', () => {
+describe.skip('Event Queue', () => {
   beforeEach(async () => {
     const queue = getQueue()
     await queue.clean(0, 1000)

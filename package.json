@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "mongodb-memory-server": "^11.1.0"
+    "mongodb-memory-server": "^11.1.0",
+    "redis-mock": "^0.56.3"
   }
 }
