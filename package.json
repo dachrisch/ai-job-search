@@ -1,0 +1,13 @@
+{
+  "name": "job-search",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/api",
+    "packages/frontend",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces"
+  }
+}
