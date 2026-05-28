@@ -1,21 +1,43 @@
 import mongoose from 'mongoose'
+import { MongoMemoryServer } from 'mongodb-memory-server'
+
+let mongoServer: MongoMemoryServer | null = null
 
 export async function connectDB(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/job-search'
+  const useMemoryDB = process.env.USE_MEMORY_DB === 'true'
 
   try {
-    console.log('  Connecting to:', mongoUri)
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
-      socketTimeoutMS: 5000,
-      family: 4, // Force IPv4
-    })
-    console.log('✅ MongoDB connected')
+    if (useMemoryDB) {
+      console.log('  Starting in-memory MongoDB...')
+      mongoServer = await MongoMemoryServer.create()
+      const uri = mongoServer.getUri()
+      console.log('  Connecting to in-memory MongoDB')
+      await mongoose.connect(uri)
+      console.log('✅ In-memory MongoDB connected')
+    } else {
+      console.log('  Connecting to:', mongoUri)
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 5000,
+        family: 4,
+      })
+      console.log('✅ MongoDB connected')
+    }
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error)
+    if (!useMemoryDB) {
+      console.error('❌ MongoDB connection error:', error)
+      console.log('💡 Tip: Set USE_MEMORY_DB=true to use in-memory MongoDB')
+      throw error
+    }
+    console.error('❌ In-memory MongoDB failed:', error)
     throw error
   }
+}
+
+export function getMongoServer(): MongoMemoryServer | null {
+  return mongoServer
 }
 
 export async function disconnectDB(): Promise<void> {

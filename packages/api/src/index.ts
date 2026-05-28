@@ -1,7 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express'
 import dotenv from 'dotenv'
 import { connectDB } from './db/index.js'
-import { registerEventHandlers } from './events/queue.js'
+import { registerEventHandlers, initializeQueue } from './events/queue.js'
 import { eventHandlers } from './events/handlers.js'
 import authRoutes from './routes/auth.js'
 import searchRoutes from './routes/searches.js'
@@ -27,15 +27,19 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 async function startServer() {
   try {
-    console.log('[1/3] Connecting to database...')
+    console.log('[1/4] Connecting to database...')
     await connectDB()
-    console.log('[2/3] Database connected')
+    console.log('[2/4] Database connected')
 
-    console.log('[3/3] Registering event handlers...')
+    console.log('[3/4] Initializing event queue...')
+    await initializeQueue()
+    console.log('  Event queue initialized')
+
+    console.log('[4/4] Registering event handlers...')
     const worker = registerEventHandlers(eventHandlers)
-    console.log('[3/3] Event handlers registered, worker:', worker ? 'created' : 'failed')
+    console.log('  Event handlers registered')
 
-    console.log('[4/4] Starting server...')
+    console.log('[5/5] Starting server...')
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`)
     })
