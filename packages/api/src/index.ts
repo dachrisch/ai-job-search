@@ -27,17 +27,20 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 async function startServer() {
   try {
+    console.log('[1/3] Connecting to database...')
     await connectDB()
-    console.log('Database connected')
+    console.log('[2/3] Database connected')
 
-    registerEventHandlers(eventHandlers)
-    console.log('Event handlers registered')
+    console.log('[3/3] Registering event handlers...')
+    const worker = registerEventHandlers(eventHandlers)
+    console.log('[3/3] Event handlers registered, worker:', worker ? 'created' : 'failed')
 
+    console.log('[4/4] Starting server...')
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`)
+      console.log(`✅ Server running on port ${PORT}`)
     })
   } catch (error) {
-    console.error('Failed to start server:', error)
+    console.error('❌ Failed to start server:', error)
     process.exit(1)
   }
 }

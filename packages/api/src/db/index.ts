@@ -4,10 +4,16 @@ export async function connectDB(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/job-search'
 
   try {
-    await mongoose.connect(mongoUri)
-    console.log('MongoDB connected')
+    console.log('  Connecting to:', mongoUri)
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 5000,
+      family: 4, // Force IPv4
+    })
+    console.log('✅ MongoDB connected')
   } catch (error) {
-    console.error('MongoDB connection error:', error)
+    console.error('❌ MongoDB connection error:', error)
     throw error
   }
 }

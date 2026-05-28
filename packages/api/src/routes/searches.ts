@@ -27,10 +27,13 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       startedAt: new Date()
     })
 
-    await addEvent('search_started', {
+    // Fire-and-forget: add event to queue without blocking the response
+    addEvent('search_started', {
       searchId: session._id.toString(),
       userId,
       query
+    }).catch(error => {
+      console.error('Failed to queue search_started event:', error)
     })
 
     res.status(201).json({
