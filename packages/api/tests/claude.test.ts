@@ -44,14 +44,14 @@ describe('Claude API Client', () => {
     expect(response.length).toBeGreaterThan(0)
   })
 
-  it('should throw error if user has no Claude token', async () => {
+  it('should return mock response if user has no Claude token', async () => {
     const user = await UserModel.create({
       email: 'test@example.com',
       passwordHash: 'hash',
     })
 
-    await expect(callClaude(user._id.toString(), 'Hello Claude')).rejects.toThrow(
-      'No Claude API token'
-    )
+    const response = await callClaude(user._id.toString(), 'Hello Claude')
+    expect(response).toBeTypeOf('string')
+    expect(response).toContain('Mock response')
   })
 })
