@@ -7,6 +7,10 @@ export async function connectDB(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/job-search'
   const useMemoryDB = process.env.USE_MEMORY_DB === 'true'
 
+  console.log(`  [DEBUG] USE_MEMORY_DB env: "${process.env.USE_MEMORY_DB}"`)
+  console.log(`  [DEBUG] MONGODB_URI env: "${process.env.MONGODB_URI}"`)
+  console.log(`  [DEBUG] useMemoryDB boolean: ${useMemoryDB}`)
+
   try {
     if (useMemoryDB) {
       console.log('  Starting in-memory MongoDB...')

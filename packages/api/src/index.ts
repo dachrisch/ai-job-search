@@ -11,8 +11,20 @@ import { SSEManager } from './utils/SSEManager.js'
 import searchRoutes from './routes/searches.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-dotenv.config({ path: path.resolve(__dirname, '../.env') })
-dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+console.log('[CONFIG] Current working directory:', process.cwd())
+console.log('[CONFIG] __dirname:', __dirname)
+console.log('[CONFIG] USE_MEMORY_DB before dotenv:', process.env.USE_MEMORY_DB)
+
+const envPath1 = path.resolve(__dirname, '../.env')
+const envPath2 = path.resolve(__dirname, '../../.env')
+console.log('[CONFIG] Trying to load .env from:', envPath1)
+console.log('[CONFIG] Trying to load .env from:', envPath2)
+
+dotenv.config({ path: envPath1 })
+dotenv.config({ path: envPath2 })
+
+console.log('[CONFIG] USE_MEMORY_DB after dotenv:', process.env.USE_MEMORY_DB)
+console.log('[CONFIG] MONGODB_URI after dotenv:', process.env.MONGODB_URI)
 
 const app: Express = express()
 const PORT = process.env.PORT || 3000
