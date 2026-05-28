@@ -1,6 +1,6 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
-import { JobSource, JobScraperResult, JobSourceConfig } from './interfaces'
+import { JobSource, JobScraperResult, JobSourceConfig, DiscoveredPage } from './interfaces'
 import { RateLimiter } from './rate-limiter'
 
 export class WebScraper implements JobSource {
@@ -50,17 +50,110 @@ export class WebScraper implements JobSource {
         }
       })
 
+      const discoveredPages = this.discoverPages(html, url)
+
       return {
         jobs: jobs.slice(0, 10),
+        discoveredPages,
         errors,
         source: this.name
-      }
+      } as any
     } catch (error: any) {
       errors.push({
         message: `Failed to scrape ${url}: ${error.message}`,
         site: url
       })
-      return { jobs: [], errors, source: this.name }
+      return {
+        jobs: [],
+        discoveredPages: [],
+        errors,
+        source: this.name
+      } as any
+    }
+  }
+
+  private discoverPages(html: string, baseUrl: string): DiscoveredPage[] {
+    const discovered: DiscoveredPage[] = []
+    const seen = new Set<string>()
+
+    try {
+      const $ = cheerio.load(html)
+
+      // Find pagination links
+      const paginationPatterns = [
+        'a[href*="?page="]',
+        'a[href*="?p="]',
+        'a[href*="/page/"]',
+        'a:contains("next")',
+        'a:contains("Next")',
+        'a:contains("pagination")'
+      ]
+
+      paginationPatterns.forEach(selector => {
+        $(selector).each((i, elem) => {
+          const href = $(elem).attr('href')
+          if (href) {
+            const absoluteUrl = this.resolveUrl(href, baseUrl)
+            if (absoluteUrl && !seen.has(absoluteUrl)) {
+              discovered.push({
+                url: absoluteUrl,
+                source: 'pagination',
+                priority: 8,
+                discoveredFrom: baseUrl
+              })
+              seen.add(absoluteUrl)
+            }
+          }
+        })
+      })
+
+      // Find career/jobs pages
+      const careerPatterns = [
+        'a[href*="/careers"]',
+        'a[href*="/jobs"]',
+        'a[href*="/opportunities"]',
+        'a[href*="/work"]'
+      ]
+
+      careerPatterns.forEach(selector => {
+        $(selector).each((i, elem) => {
+          if (discovered.length < 10) {
+            const href = $(elem).attr('href')
+            if (href) {
+              const absoluteUrl = this.resolveUrl(href, baseUrl)
+              if (absoluteUrl && !seen.has(absoluteUrl)) {
+                discovered.push({
+                  url: absoluteUrl,
+                  source: 'internal_link',
+                  priority: 6,
+                  discoveredFrom: baseUrl
+                })
+                seen.add(absoluteUrl)
+              }
+            }
+          }
+        })
+      })
+
+      return discovered.slice(0, 5) // Max 5 per page
+    } catch (error) {
+      console.warn('Page discovery error:', error)
+      return []
+    }
+  }
+
+  private resolveUrl(href: string, baseUrl: string): string | null {
+    try {
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        return href
+      }
+      if (href.startsWith('/')) {
+        const base = new URL(baseUrl)
+        return `${base.protocol}//${base.host}${href}`
+      }
+      return new URL(href, baseUrl).toString()
+    } catch {
+      return null
     }
   }
 }

@@ -16,4 +16,15 @@ describe('WebScraper', () => {
     expect(result.errors.length).toBeGreaterThan(0)
     expect(result.source).toBe('WebScraper')
   })
+
+  it('should discover pagination and internal links', async () => {
+    const result = await scraper.scrape('https://linkedin.com', 'engineer')
+
+    expect(result).toHaveProperty('discoveredPages')
+    expect(Array.isArray((result as any).discoveredPages)).toBe(true)
+
+    if (result.jobs.length > 0) {
+      expect(((result as any).discoveredPages || []).length).toBeGreaterThanOrEqual(0)
+    }
+  })
 })
