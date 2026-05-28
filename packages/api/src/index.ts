@@ -6,6 +6,8 @@ import { connectDB } from './db/index.js'
 import { registerEventHandlers, initializeQueue } from './events/queue.js'
 import { eventHandlers } from './events/handlers.js'
 import authRoutes from './routes/auth.js'
+import { streamRouter } from './routes/stream.js'
+import { SSEManager } from './utils/SSEManager.js'
 import searchRoutes from './routes/searches.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -15,9 +17,12 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 const app: Express = express()
 const PORT = process.env.PORT || 3000
 
+const sseManager = new SSEManager()
+
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)
+app.use('/api/searches', streamRouter(sseManager))
 app.use('/api/searches', searchRoutes)
 
 app.get('/api/health', (req: Request, res: Response) => {
@@ -56,3 +61,4 @@ async function startServer() {
 startServer()
 
 export default app
+export { sseManager }
