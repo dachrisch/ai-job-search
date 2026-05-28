@@ -3,6 +3,9 @@ import { addEvent } from './queue.js'
 import { callClaude } from '../claude/client.js'
 import { SSEManager } from '../utils/SSEManager.js'
 import { JobSourceManager } from '../job-sources/manager.js'
+import { SearchService } from '../job-sources/search-service.js'
+import { PageAnalyzer } from '../job-sources/page-analyzer.js'
+import { SearchResult, AnalyzedPage } from '../job-sources/interfaces.js'
 
 // Mock job data for testing without a real crawler
 function getMockJobs(keywords: string): any[] {
@@ -78,8 +81,6 @@ export const eventHandlers = {
   search_started: async (data: { searchId: string; userId: string; query: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Search Started`)
-      console.log(`   Search ID: ${data.searchId}`)
-      console.log(`   User ID: ${data.userId}`)
       console.log(`   Query: "${data.query}"`)
 
       const session = await SearchSessionModel.findById(data.searchId)
@@ -88,44 +89,196 @@ export const eventHandlers = {
         return
       }
 
-      // Call Claude to get initial site suggestions
-      console.log(`   📞 Calling Claude API to identify job boards...`)
-      const suggestion = await callClaude(
-        session.userId,
-        `Given the user wants: "${data.query}", what 3-5 job board websites should we search?
-         Return JSON: {sites: ["domain1.com", "domain2.com"], keywords: "search keywords"}`
-      )
-      console.log(`   ✅ Claude response received`)
-      console.log(`   📋 Response preview: ${suggestion.substring(0, 100)}...`)
+      const searchService = new SearchService()
+      const searchResults = await searchService.search(data.query)
 
-      const parsed = JSON.parse(suggestion)
-      session.claudeConversationHistory.push(
-        { role: 'user', content: data.query },
-        { role: 'assistant', content: suggestion }
-      )
-      await session.save()
+      console.log(`   🔍 SearXNG found ${searchResults.length} pages`)
 
-      await addEvent('sites_identified', {
+      if (searchResults.length === 0) {
+        console.log(`   📋 No SearXNG results, using fallback approach...`)
+
+        const suggestion = await callClaude(
+          session.userId,
+          `User wants: "${data.query}".
+           What are the best 3-5 job boards to search?
+           Return JSON: {sites: ["domain1.com"], keywords: "search keywords"}`
+        )
+
+        const parsed = JSON.parse(suggestion)
+        await addEvent('sites_identified', {
+          searchId: data.searchId,
+          sites: parsed.sites,
+          keywords: parsed.keywords
+        })
+        return
+      }
+
+      await addEvent('search_query_performed', {
         searchId: data.searchId,
-        sites: parsed.sites,
-        keywords: parsed.keywords
+        query: data.query,
+        results: searchResults
       })
     } catch (error) {
       console.error('Error in search_started handler:', error)
+      await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+    }
+  },
+
+  search_query_performed: async (
+    data: { searchId: string; query: string; results: SearchResult[] },
+    sseManager: SSEManager
+  ) => {
+    try {
+      console.log(`\n🤖 AGENT LOG - Search Query Performed`)
+      console.log(`   Query: "${data.query}"`)
+      console.log(`   Results found: ${data.results.length}`)
+
       const session = await SearchSessionModel.findById(data.searchId)
-      if (session) {
-        session.status = 'failed'
-        await session.save()
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
       }
 
-      sseManager.broadcast(data.searchId, {
-        type: 'error',
-        payload: {
-          message: 'Search processing failed',
-          searchStatus: 'failed'
-        }
+      if (!session.searchQueries) {
+        session.searchQueries = []
+      }
+      session.searchQueries.push(data.query)
+      await session.save()
+
+      await addEvent('pages_analyzed', {
+        searchId: data.searchId,
+        query: data.query,
+        results: data.results
       })
-      throw error
+    } catch (error) {
+      console.error('Error in search_query_performed handler:', error)
+      await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+    }
+  },
+
+  pages_analyzed: async (
+    data: { searchId: string; query: string; results: SearchResult[] },
+    sseManager: SSEManager
+  ) => {
+    try {
+      console.log(`\n🤖 AGENT LOG - Pages Analyzed`)
+      console.log(`   Analyzing ${data.results.length} pages...`)
+
+      const session = await SearchSessionModel.findById(data.searchId)
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      const pageAnalyzer = new PageAnalyzer()
+      const analyzedPages = await pageAnalyzer.analyzePages(
+        data.results,
+        data.query,
+        session.userId
+      )
+
+      console.log(`   ✅ Pages prioritized: ${analyzedPages.length}`)
+
+      session.discoveredPages = analyzedPages.map(p => p.url)
+      await session.save()
+
+      await addEvent('crawl_requested', {
+        searchId: data.searchId,
+        sites: analyzedPages.map(p => p.url.split('/')[2]), // Extract domain from URL
+        keywords: data.query
+      })
+    } catch (error) {
+      console.error('Error in pages_analyzed handler:', error)
+      await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+    }
+  },
+
+  search_evaluation: async (
+    data: { searchId: string; jobsFound: number },
+    sseManager: SSEManager
+  ) => {
+    try {
+      console.log(`\n🤖 AGENT LOG - Search Evaluation`)
+      console.log(`   Total jobs found: ${data.jobsFound}`)
+
+      const session = await SearchSessionModel.findById(data.searchId)
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      const prompt = `We've found ${data.jobsFound} job listings so far.
+        The user originally searched for: "${session.query}"
+
+        Should we:
+        1. Stop searching and rank the results (enough quality jobs found)
+        2. Refine the search with different keywords
+        3. Search deeper into discovered pages
+
+        Respond with ONLY one of: COMPLETE, REFINE, or DEEPEN`
+
+      const claudeResponse = await callClaude(session.userId, prompt)
+      session.claudeConversationHistory.push(
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: claudeResponse }
+      )
+      await session.save()
+
+      const decision = claudeResponse.toUpperCase().trim()
+
+      if (decision.includes('COMPLETE') || data.jobsFound >= 30) {
+        await addEvent('search_complete', { searchId: data.searchId })
+      } else if (decision.includes('REFINE')) {
+        const refinementPrompt = `Suggest new search keywords to find different job opportunities.
+          Original search: "${session.query}"
+          Return ONLY the new keywords, nothing else.`
+
+        const newKeywords = await callClaude(session.userId, refinementPrompt)
+        await addEvent('search_refined', {
+          searchId: data.searchId,
+          claudeResponse: newKeywords.trim()
+        })
+      } else if (decision.includes('DEEPEN')) {
+        await addEvent('crawl_deeper', { searchId: data.searchId })
+      } else {
+        await addEvent('search_complete', { searchId: data.searchId })
+      }
+    } catch (error) {
+      console.error('Error in search_evaluation handler:', error)
+      await addEvent('search_complete', { searchId: data.searchId })
+    }
+  },
+
+  crawl_deeper: async (
+    data: { searchId: string },
+    sseManager: SSEManager
+  ) => {
+    try {
+      console.log(`\n🤖 AGENT LOG - Crawl Deeper`)
+      console.log(`   Scraping discovered pages deeper...`)
+
+      const session = await SearchSessionModel.findById(data.searchId)
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      const resultsManager = new JobSourceManager()
+      const results = await resultsManager.scrapeWithDiscovery(
+        data.searchId,
+        session.discoveredPages || [],
+        session.query,
+        2
+      )
+
+      await addEvent('jobs_scraped', {
+        searchId: data.searchId,
+        jobs: results.jobs,
+        newSites: []
+      })
+    } catch (error) {
+      console.error('Error in crawl_deeper handler:', error)
+      await addEvent('search_evaluation', { searchId: data.searchId, jobsFound: 0 })
     }
   },
 
@@ -294,27 +447,12 @@ export const eventHandlers = {
         }
       })
 
-      // Ask Claude if we should search more
-      const jobSummary = data.jobs.map(j => `${j.title} at ${j.company}`).join('\n')
-      const prompt = `We found ${data.jobs.length} jobs so far:\n${jobSummary}\n\nShould we search more sites, or do we have good coverage?`
-
-      const claudeResponse = await callClaude(session.userId, prompt)
-      session.claudeConversationHistory.push(
-        { role: 'user', content: prompt },
-        { role: 'assistant', content: claudeResponse }
-      )
-      await session.save()
-
-      if (claudeResponse.toLowerCase().includes('more') || claudeResponse.toLowerCase().includes('try')) {
-        await addEvent('search_refined', {
-          searchId: data.searchId,
-          claudeResponse
-        })
-      } else {
-        await addEvent('search_complete', {
-          searchId: data.searchId
-        })
-      }
+      // Trigger evaluation to decide next step
+      const totalJobs = await JobModel.countDocuments({ searchSessionId: data.searchId })
+      await addEvent('search_evaluation', {
+        searchId: data.searchId,
+        jobsFound: totalJobs
+      })
     } catch (error) {
       console.error('Error in jobs_scraped handler:', error)
       const session = await SearchSessionModel.findById(data.searchId)
