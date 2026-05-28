@@ -8,11 +8,15 @@
     "packages/shared"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces"
+    "dev": "npm run dev --workspaces",
+    "start:api": "cd packages/api && MONGODB_URI=mongodb://10.185.182.250:27017/job_search REDIS_URL=redis://10.185.182.250:6379 npm run dev",
+    "start:frontend": "cd packages/frontend && npm run dev",
+    "start:dev": "npm-run-all --parallel start:api start:frontend"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "mongodb-memory-server": "^11.1.0",
+    "npm-run-all": "^4.1.5",
     "redis-mock": "^0.56.3"
   }
 }

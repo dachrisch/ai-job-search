@@ -36,7 +36,7 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
 
         if (statusData.status === 'complete') {
           const results = await getSearchResults(searchId)
-          setJobs(results)
+          setJobs(results.jobs || [])
         }
       } catch (error) {
         console.error('Failed to fetch status:', error)

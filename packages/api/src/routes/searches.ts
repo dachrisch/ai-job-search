@@ -64,7 +64,11 @@ router.get('/:searchId', async (req: Request, res: Response, next: NextFunction)
       status: session.status,
       query: session.query,
       iterationCount: session.iterationCount,
-      foundJobsCount: session.foundJobs.length
+      foundJobsCount: session.foundJobs.length,
+      sitesSearched: session.sitesSearched || [],
+      claudeConversationHistory: session.claudeConversationHistory || [],
+      startedAt: session.startedAt,
+      completedAt: session.completedAt
     })
   } catch (error) {
     next(error)

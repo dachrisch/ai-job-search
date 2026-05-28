@@ -74,7 +74,10 @@ function getMockJobs(keywords: string): any[] {
 export const eventHandlers = {
   search_started: async (data: { searchId: string; userId: string; query: string }) => {
     try {
-      console.log('Search started:', data.searchId)
+      console.log(`\n🤖 AGENT LOG - Search Started`)
+      console.log(`   Search ID: ${data.searchId}`)
+      console.log(`   User ID: ${data.userId}`)
+      console.log(`   Query: "${data.query}"`)
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
@@ -83,11 +86,14 @@ export const eventHandlers = {
       }
 
       // Call Claude to get initial site suggestions
+      console.log(`   📞 Calling Claude API to identify job boards...`)
       const suggestion = await callClaude(
         session.userId,
         `Given the user wants: "${data.query}", what 3-5 job board websites should we search?
          Return JSON: {sites: ["domain1.com", "domain2.com"], keywords: "search keywords"}`
       )
+      console.log(`   ✅ Claude response received`)
+      console.log(`   📋 Response preview: ${suggestion.substring(0, 100)}...`)
 
       const parsed = JSON.parse(suggestion)
       session.claudeConversationHistory.push(
@@ -114,7 +120,9 @@ export const eventHandlers = {
 
   sites_identified: async (data: { searchId: string; sites: string[]; keywords: string }) => {
     try {
-      console.log('Sites identified:', data.sites)
+      console.log(`\n🤖 AGENT LOG - Sites Identified`)
+      console.log(`   Sites: ${data.sites.join(', ')}`)
+      console.log(`   Keywords: "${data.keywords}"`)
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
@@ -150,22 +158,27 @@ export const eventHandlers = {
 
   crawl_requested: async (data: { searchId: string; sites: string[]; keywords: string }) => {
     try {
-      console.log('Crawl requested for sites:', data.sites)
+      console.log(`\n🤖 AGENT LOG - Crawl Requested`)
+      console.log(`   Requesting job crawler for: ${data.sites.join(', ')}`)
 
       let jobs: any[] = []
 
       try {
         // Call Python crawler
+        console.log(`   🕷️ Calling web crawler service...`)
         const response = await axios.post('http://localhost:8000/crawler/scrape', {
           urls: data.sites.map(domain => `https://${domain}/jobs`),
           keywords: data.keywords
         })
 
         jobs = response.data.jobs
+        console.log(`   ✅ Crawler returned ${jobs.length} jobs`)
       } catch (crawlerError: any) {
         // If crawler is not available, use mock job data
-        console.log('Crawler unavailable, using mock job data:', crawlerError.message)
+        console.log(`   ⚠️ Crawler unavailable: ${crawlerError.message}`)
+        console.log(`   📋 Using mock job data for demonstration`)
         jobs = getMockJobs(data.keywords)
+        console.log(`   ✅ Generated ${jobs.length} mock jobs`)
       }
 
       await addEvent('jobs_scraped', {
@@ -182,7 +195,11 @@ export const eventHandlers = {
 
   jobs_scraped: async (data: { searchId: string; jobs: any[]; newSites: string[] }) => {
     try {
-      console.log('Jobs scraped:', data.jobs.length)
+      console.log(`\n🤖 AGENT LOG - Jobs Scraped`)
+      console.log(`   Jobs found: ${data.jobs.length}`)
+      if (data.jobs.length > 0) {
+        console.log(`   Sample titles: ${data.jobs.slice(0, 3).map(j => j.title).join(', ')}`)
+      }
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
@@ -237,7 +254,9 @@ export const eventHandlers = {
 
   search_refined: async (data: { searchId: string; claudeResponse: string }) => {
     try {
-      console.log('Search refined')
+      console.log(`\n🤖 AGENT LOG - Search Refined`)
+      console.log(`   Claude recommends searching more sites`)
+      console.log(`   📞 Extracting new job boards to search...`)
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
@@ -274,7 +293,8 @@ export const eventHandlers = {
 
   search_complete: async (data: { searchId: string }) => {
     try {
-      console.log('Search complete')
+      console.log(`\n🤖 AGENT LOG - Search Complete`)
+      console.log(`   🏆 Search completed successfully`)
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {

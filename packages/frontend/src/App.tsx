@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { SearchPage } from './pages/SearchPage'
 import { ResultsPage } from './pages/ResultsPage'
 
-type AppPage = 'auth' | 'search' | 'results'
+type AppPage = 'auth' | 'register' | 'search' | 'results'
 
 export default function App() {
   const { auth, register, login, setClaudeToken, logout, isAuthenticated } = useAuth()
@@ -13,35 +13,41 @@ export default function App() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [claudeApiKey, setClaudeApiKey] = useState('')
+  const [error, setError] = useState('')
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     try {
       await register(email, password)
-      alert('Registered successfully!')
-    } catch (error) {
-      alert('Registration failed: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      setEmail('')
+      setPassword('')
+      setCurrentPage('auth')
+    } catch (err) {
+      setError('Registration failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     try {
       await login(email, password)
       setCurrentPage('search')
-    } catch (error) {
-      alert('Login failed: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    } catch (err) {
+      setError('Login failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
   const handleSetClaudeToken = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     try {
       await setClaudeToken(claudeApiKey)
       setClaudeTokenSet(true)
       setCurrentPage('search')
-    } catch (error) {
-      alert('Failed to set Claude token: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    } catch (err) {
+      setError('Failed to set Claude token: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
@@ -49,23 +55,45 @@ export default function App() {
     return (
       <div style={{ maxWidth: '400px', margin: '40px auto', padding: '20px' }}>
         <h1>AI Job Search</h1>
+        {error && (
+          <div style={{
+            color: '#d32f2f',
+            backgroundColor: '#ffebee',
+            padding: '10px',
+            marginBottom: '15px',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}>
+            {error}
+          </div>
+        )}
         <form onSubmit={currentPage === 'auth' ? handleLogin : handleRegister}>
           <input
             type="email"
             placeholder="Email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginBottom: '10px', display: 'block' }}
+            style={{ width: '100%', padding: '8px', marginBottom: '10px', display: 'block', boxSizing: 'border-box' }}
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginBottom: '10px', display: 'block' }}
+            style={{ width: '100%', padding: '8px', marginBottom: '10px', display: 'block', boxSizing: 'border-box' }}
           />
           <button type="submit" style={{ width: '100%', padding: '10px' }}>
             {currentPage === 'auth' ? 'Login' : 'Register'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentPage(currentPage === 'auth' ? 'register' : 'auth')
+              setError('')
+            }}
+            style={{ width: '100%', padding: '10px', marginTop: '10px', background: 'none', border: '1px solid #ccc', cursor: 'pointer' }}
+          >
+            {currentPage === 'auth' ? 'Need an account? Register' : 'Already have an account? Login'}
           </button>
         </form>
       </div>
@@ -76,13 +104,25 @@ export default function App() {
     return (
       <div style={{ maxWidth: '400px', margin: '40px auto', padding: '20px' }}>
         <h1>Set Up Claude API Token</h1>
+        {error && (
+          <div style={{
+            color: '#d32f2f',
+            backgroundColor: '#ffebee',
+            padding: '10px',
+            marginBottom: '15px',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}>
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSetClaudeToken}>
           <input
             type="password"
             placeholder="Claude API Key (sk-...)"
             value={claudeApiKey}
             onChange={e => setClaudeApiKey(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginBottom: '10px', display: 'block' }}
+            style={{ width: '100%', padding: '8px', marginBottom: '10px', display: 'block', boxSizing: 'border-box' }}
           />
           <button type="submit" style={{ width: '100%', padding: '10px' }}>
             Save Claude Token

@@ -10,6 +10,9 @@ export async function handleRegister(req: Request, res: Response, next: NextFunc
     const result = await registerUser(email, password)
     res.status(201).json(result)
   } catch (error) {
+    if (error instanceof Error && error.message === 'Email already exists') {
+      return res.status(409).json({ error: 'Email already exists' })
+    }
     next(error)
   }
 }
@@ -23,6 +26,9 @@ export async function handleLogin(req: Request, res: Response, next: NextFunctio
     const result = await loginUser(email, password)
     res.status(200).json(result)
   } catch (error) {
+    if (error instanceof Error && error.message === 'Invalid credentials') {
+      return res.status(401).json({ error: 'Invalid credentials' })
+    }
     next(error)
   }
 }

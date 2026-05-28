@@ -1,12 +1,16 @@
 import express, { Express, Request, Response, NextFunction } from 'express'
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { connectDB } from './db/index.js'
 import { registerEventHandlers, initializeQueue } from './events/queue.js'
 import { eventHandlers } from './events/handlers.js'
 import authRoutes from './routes/auth.js'
 import searchRoutes from './routes/searches.js'
 
-dotenv.config()
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
 const app: Express = express()
 const PORT = process.env.PORT || 3000
