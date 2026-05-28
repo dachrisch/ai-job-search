@@ -1,5 +1,6 @@
 import { JobSource, JobScraperResult, JobSourceConfig } from './interfaces'
 import { WebScraper } from './web-scraper'
+import { MockSource } from './mock-source'
 
 export class JobSourceManager {
   private sources: JobSource[] = []
@@ -10,7 +11,8 @@ export class JobSourceManager {
 
   private initializeSources(): void {
     this.sources = [
-      new WebScraper()
+      new WebScraper(),
+      new MockSource() // Fallback source always available
       // More sources can be added here (LinkedInScraper, IndeedAPI, etc.)
     ]
   }
