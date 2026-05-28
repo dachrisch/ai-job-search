@@ -2,7 +2,7 @@ import { SearchSessionModel, JobModel, SiteModel } from '../db/models.js'
 import { addEvent } from './queue.js'
 import { callClaude } from '../claude/client.js'
 import { SSEManager } from '../utils/SSEManager.js'
-import axios from 'axios'
+import { JobSourceManager } from '../job-sources/manager.js'
 
 // Mock job data for testing without a real crawler
 function getMockJobs(keywords: string): any[] {
@@ -71,6 +71,8 @@ function getMockJobs(keywords: string): any[] {
 
   return mockJobs
 }
+
+const jobSourceManager = new JobSourceManager()
 
 export const eventHandlers = {
   search_started: async (data: { searchId: string; userId: string; query: string }, sseManager: SSEManager) => {
@@ -176,26 +178,45 @@ export const eventHandlers = {
   crawl_requested: async (data: { searchId: string; sites: string[]; keywords: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Crawl Requested`)
-      console.log(`   Requesting job crawler for: ${data.sites.join(', ')}`)
+      console.log(`   Requesting job sources for: ${data.sites.join(', ')}`)
+
+      const session = await SearchSessionModel.findById(data.searchId)
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
+      }
 
       let jobs: any[] = []
 
       try {
-        // Call Python crawler
-        console.log(`   🕷️ Calling web crawler service...`)
-        const response = await axios.post('http://localhost:8000/crawler/scrape', {
-          urls: data.sites.map(domain => `https://${domain}/jobs`),
-          keywords: data.keywords
+        // Use JobSourceManager instead of calling external crawler
+        console.log(`   🔍 Scraping jobs from specified sources...`)
+        const results = await jobSourceManager.scrapeJobs(data.sites, data.keywords, {
+          timeout: 15000,
+          maxRetries: 2
         })
 
-        jobs = response.data.jobs
-        console.log(`   ✅ Crawler returned ${jobs.length} jobs`)
-      } catch (crawlerError: any) {
-        // If crawler is not available, use mock job data
-        console.log(`   ⚠️ Crawler unavailable: ${crawlerError.message}`)
-        console.log(`   📋 Using mock job data for demonstration`)
+        // Aggregate jobs from all sources
+        results.forEach(result => {
+          if (result.jobs.length > 0) {
+            console.log(`   ✅ ${result.source}: Found ${result.jobs.length} jobs`)
+            jobs.push(...result.jobs)
+          }
+          if (result.errors.length > 0) {
+            console.log(`   ⚠️  ${result.source}: ${result.errors[0].message}`)
+          }
+        })
+
+        if (jobs.length === 0) {
+          console.log(`   📋 No jobs found from scrapers, using fallback mock data`)
+          jobs = getMockJobs(data.keywords)
+        }
+
+        console.log(`   ✅ Total jobs collected: ${jobs.length}`)
+      } catch (scraperError: any) {
+        console.log(`   ⚠️  Job sources unavailable: ${scraperError.message}`)
+        console.log(`   📋 Using fallback mock job data`)
         jobs = getMockJobs(data.keywords)
-        console.log(`   ✅ Generated ${jobs.length} mock jobs`)
       }
 
       await addEvent('jobs_scraped', {
@@ -210,7 +231,7 @@ export const eventHandlers = {
       sseManager.broadcast(data.searchId, {
         type: 'error',
         payload: {
-          message: 'Search processing failed',
+          message: 'Job scraping failed',
           searchStatus: 'failed'
         }
       })
