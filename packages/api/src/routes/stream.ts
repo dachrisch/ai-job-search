@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
-import { authMiddleware, verifyToken } from '../auth/auth.controller.js'
+import { verifyToken } from '../auth/auth.service.js'
 import { SearchSessionModel, JobModel } from '../db/models.js'
 import { SSEManager } from '../utils/SSEManager.js'
 
