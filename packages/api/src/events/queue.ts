@@ -1,4 +1,5 @@
 import { Queue, Worker } from 'bullmq'
+import { SSEManager } from '../utils/SSEManager.js'
 
 const redisConnection = {
   url: process.env.REDIS_URL || 'redis://localhost:6379'
@@ -46,13 +47,13 @@ export async function addEvent(eventType: string, data: any) {
   }
 }
 
-export function registerEventHandlers(handlers: Record<string, (data: any) => Promise<void>>) {
+export function registerEventHandlers(handlers: Record<string, (data: any, sseManager: SSEManager) => Promise<void>>, sseManager: SSEManager) {
   if (!usingMemoryQueue && eventQueue) {
     // Use BullMQ worker
     const worker = new Worker('job-search-events', async (job) => {
       const handler = handlers[job.name]
       if (handler) {
-        await handler(job.data)
+        await handler(job.data, sseManager)
       } else {
         console.warn(`No handler for event: ${job.name}`)
       }
@@ -79,7 +80,7 @@ export function registerEventHandlers(handlers: Record<string, (data: any) => Pr
           const handler = handlers[event.type]
           if (handler) {
             try {
-              await handler(event.data)
+              await handler(event.data, sseManager)
               console.log(`Event processed: ${event.type}`)
             } catch (err) {
               console.error(`Event failed: ${event.type}`, err)

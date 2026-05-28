@@ -1,6 +1,7 @@
 import { SearchSessionModel, JobModel, SiteModel } from '../db/models.js'
 import { addEvent } from './queue.js'
 import { callClaude } from '../claude/client.js'
+import { SSEManager } from '../utils/SSEManager.js'
 import axios from 'axios'
 
 // Mock job data for testing without a real crawler
@@ -72,7 +73,7 @@ function getMockJobs(keywords: string): any[] {
 }
 
 export const eventHandlers = {
-  search_started: async (data: { searchId: string; userId: string; query: string }) => {
+  search_started: async (data: { searchId: string; userId: string; query: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Search Started`)
       console.log(`   Search ID: ${data.searchId}`)
@@ -114,11 +115,19 @@ export const eventHandlers = {
         session.status = 'failed'
         await session.save()
       }
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
       throw error
     }
   },
 
-  sites_identified: async (data: { searchId: string; sites: string[]; keywords: string }) => {
+  sites_identified: async (data: { searchId: string; sites: string[]; keywords: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Sites Identified`)
       console.log(`   Sites: ${data.sites.join(', ')}`)
@@ -152,11 +161,19 @@ export const eventHandlers = {
         session.status = 'failed'
         await session.save()
       }
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
       throw error
     }
   },
 
-  crawl_requested: async (data: { searchId: string; sites: string[]; keywords: string }) => {
+  crawl_requested: async (data: { searchId: string; sites: string[]; keywords: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Crawl Requested`)
       console.log(`   Requesting job crawler for: ${data.sites.join(', ')}`)
@@ -189,11 +206,19 @@ export const eventHandlers = {
     } catch (error) {
       console.error('Crawl handler failed:', error)
       await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
       throw error
     }
   },
 
-  jobs_scraped: async (data: { searchId: string; jobs: any[]; newSites: string[] }) => {
+  jobs_scraped: async (data: { searchId: string; jobs: any[]; newSites: string[] }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Jobs Scraped`)
       console.log(`   Jobs found: ${data.jobs.length}`)
@@ -209,16 +234,44 @@ export const eventHandlers = {
 
       // Store jobs in database
       for (const job of data.jobs) {
-        await JobModel.create({
+        const savedJob = await JobModel.create({
           ...job,
           searchSessionId: data.searchId,
           discoveredAt: new Date()
+        })
+
+        // Broadcast new job
+        sseManager.broadcast(data.searchId, {
+          type: 'job',
+          payload: {
+            job: {
+              id: savedJob._id.toString(),
+              title: savedJob.title,
+              company: savedJob.company,
+              description: savedJob.description,
+              url: savedJob.url,
+              salary: savedJob.salary,
+              location: savedJob.location,
+              matchScore: 0,
+              matchReasoning: ''
+            },
+            totalFound: data.jobs.length
+          }
         })
       }
 
       session.foundJobs.push(...(await JobModel.find({ searchSessionId: data.searchId }).select('_id')).map(j => j._id.toString()))
       session.iterationCount += 1
       await session.save()
+
+      // Broadcast status update
+      sseManager.broadcast(data.searchId, {
+        type: 'status',
+        payload: {
+          status: session.status,
+          iterationCount: session.iterationCount
+        }
+      })
 
       // Ask Claude if we should search more
       const jobSummary = data.jobs.map(j => `${j.title} at ${j.company}`).join('\n')
@@ -248,11 +301,19 @@ export const eventHandlers = {
         session.status = 'failed'
         await session.save()
       }
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
       throw error
     }
   },
 
-  search_refined: async (data: { searchId: string; claudeResponse: string }) => {
+  search_refined: async (data: { searchId: string; claudeResponse: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Search Refined`)
       console.log(`   Claude recommends searching more sites`)
@@ -287,11 +348,19 @@ export const eventHandlers = {
         session.status = 'failed'
         await session.save()
       }
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
       throw error
     }
   },
 
-  search_complete: async (data: { searchId: string }) => {
+  search_complete: async (data: { searchId: string }, sseManager: SSEManager) => {
     try {
       console.log(`\n🤖 AGENT LOG - Search Complete`)
       console.log(`   🏆 Search completed successfully`)
@@ -320,6 +389,15 @@ export const eventHandlers = {
       session.completedAt = new Date()
       await session.save()
 
+      // Broadcast completion status
+      sseManager.broadcast(data.searchId, {
+        type: 'status',
+        payload: {
+          status: 'complete',
+          iterationCount: session.iterationCount
+        }
+      })
+
       console.log('Search session complete:', data.searchId)
     } catch (error) {
       console.error('Error in search_complete handler:', error)
@@ -328,11 +406,19 @@ export const eventHandlers = {
         session.status = 'failed'
         await session.save()
       }
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
       throw error
     }
   },
 
-  search_failed: async (data: { searchId: string; error: string }) => {
+  search_failed: async (data: { searchId: string; error: string }, sseManager: SSEManager) => {
     try {
       console.log('Search failed handler:', data.searchId, data.error)
       const session = await SearchSessionModel.findById(data.searchId)
@@ -340,6 +426,14 @@ export const eventHandlers = {
         session.status = 'failed'
         await session.save()
       }
+
+      sseManager.broadcast(data.searchId, {
+        type: 'error',
+        payload: {
+          message: 'Search processing failed',
+          searchStatus: 'failed'
+        }
+      })
     } catch (error) {
       console.error('Error in search_failed handler:', error)
       throw error

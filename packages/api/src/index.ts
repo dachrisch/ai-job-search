@@ -45,7 +45,7 @@ async function startServer() {
     console.log('  Event queue initialized')
 
     console.log('[4/4] Registering event handlers...')
-    const worker = registerEventHandlers(eventHandlers)
+    const worker = registerEventHandlers(eventHandlers, sseManager)
     console.log('  Event handlers registered')
 
     console.log('[5/5] Starting server...')
