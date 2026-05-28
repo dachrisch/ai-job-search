@@ -36,6 +36,10 @@ export interface SearchSession {
   userId: string
   query: string
   status: 'running' | 'complete' | 'failed'
+  searchPhase?: 'initial' | 'refined'
+  searchQueries?: string[]
+  discoveredPages?: string[]
+  scrapedPages?: string[]
   claudeConversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
   foundJobs: string[]
   sitesSearched: string[]

@@ -43,6 +43,11 @@ const searchSessionSchema = new Schema<SearchSession>(
     userId: { type: String, required: true, index: true },
     query: { type: String, required: true },
     status: { type: String, enum: ['running', 'complete', 'failed'], required: true },
+    // Discovery tracking fields
+    searchPhase: { type: String, enum: ['initial', 'refined'], default: 'initial' },
+    searchQueries: [String],
+    discoveredPages: [String],
+    scrapedPages: [String],
     claudeConversationHistory: [
       {
         role: { type: String, enum: ['user', 'assistant'], required: true },
