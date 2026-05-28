@@ -15,13 +15,13 @@ export class RateLimiter {
 
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     while (this.activeRequests >= this.config.maxConcurrent) {
-      await new Promise(resolve => this.queue.push(resolve))
+      await new Promise<void>(resolve => this.queue.push(resolve))
     }
 
     const now = Date.now()
     const timeSinceLastRequest = now - this.lastRequestTime
     if (timeSinceLastRequest < this.config.delayMs) {
-      await new Promise(resolve =>
+      await new Promise<void>(resolve =>
         setTimeout(resolve, this.config.delayMs - timeSinceLastRequest)
       )
     }
