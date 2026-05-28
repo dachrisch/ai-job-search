@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
-import { authMiddleware } from '../auth/auth.controller.js'
+import { authMiddleware, verifyToken } from '../auth/auth.controller.js'
 import { SearchSessionModel, JobModel } from '../db/models.js'
 import { SSEManager } from '../utils/SSEManager.js'
 
@@ -69,12 +69,25 @@ export async function handleStreamConnect(
   }
 }
 
+function streamAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  try {
+    const token = req.query.token as string
+    if (!token) {
+      return res.status(401).json({ error: 'Missing token' })
+    }
+
+    const decoded = verifyToken(token)
+    ;(req as any).userId = decoded.userId
+    next()
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' })
+  }
+}
+
 export function streamRouter(sseManager: SSEManager) {
   const router = Router()
 
-  router.use(authMiddleware)
-
-  router.get('/:searchId/stream', (req: Request, res: Response, next: NextFunction) => {
+  router.get('/:searchId/stream', streamAuthMiddleware, (req: Request, res: Response, next: NextFunction) => {
     return handleStreamConnect(req, res, next, sseManager)
   })
 

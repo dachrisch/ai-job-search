@@ -38,7 +38,7 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
 
   const connect = useCallback(() => {
     try {
-      const es = new EventSource(`/api/searches/${searchId}/stream`, {
+      const es = new EventSource(`/api/searches/${searchId}/stream?token=${encodeURIComponent(token)}`, {
         withCredentials: false
       })
 
@@ -108,7 +108,7 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
       setError('Failed to connect to search stream')
       setIsConnected(false)
     }
-  }, [searchId, reconnectAttempts])
+  }, [searchId, token, reconnectAttempts])
 
   useEffect(() => {
     connect()
