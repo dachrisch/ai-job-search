@@ -6,12 +6,12 @@ const testUsers = [
   {
     email: 'test@example.com',
     password: 'password123',
-    claudeApiToken: 'sk-ant-test-token-123456'
+    claudeApiToken: process.env.CLAUDE_API_KEY || 'sk-ant-test-token-123456'
   },
   {
     email: 'demo@example.com',
     password: 'demo123',
-    claudeApiToken: 'sk-ant-test-token-789012'
+    claudeApiToken: process.env.CLAUDE_API_KEY || 'sk-ant-test-token-789012'
   }
 ]
 
