@@ -8,15 +8,21 @@ let mongoServer: MongoMemoryServer
 
 describe('Claude API Client', () => {
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create()
-    const mongoUri = mongoServer.getUri()
-    process.env.MONGODB_URI = mongoUri
+    try {
+      mongoServer = await MongoMemoryServer.create()
+      const mongoUri = mongoServer.getUri()
+      process.env.MONGODB_URI = mongoUri
+    } catch (error) {
+      console.log('MongoMemoryServer failed to start:', error)
+    }
     await connectDB()
   })
 
   afterAll(async () => {
     await disconnectDB()
-    await mongoServer.stop()
+    if (mongoServer) {
+      await mongoServer.stop()
+    }
   })
 
   beforeEach(async () => {
