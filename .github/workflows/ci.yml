@@ -62,18 +62,18 @@ jobs:
         run: npm run build
         working-directory: packages/api
 
-status:
-  name: CI Status
-  runs-on: ubuntu-latest
-  needs: [test, lint]
-  if: always()
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: always()
 
-  steps:
-    - name: Check CI status
-      run: |
-        if [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.lint.result }}" = "failure" ]; then
-          echo "❌ CI failed"
-          exit 1
-        else
-          echo "✅ CI passed"
-        fi
+    steps:
+      - name: Check CI status
+        run: |
+          if [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.lint.result }}" = "failure" ]; then
+            echo "❌ CI failed"
+            exit 1
+          else
+            echo "✅ CI passed"
+          fi
