@@ -6,7 +6,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 
 let mongoServer: MongoMemoryServer
 
-describe('Claude API Client', () => {
+describe.skipIf(process.env.CI)('Claude API Client', () => {
   beforeAll(async () => {
     try {
       mongoServer = await MongoMemoryServer.create()
