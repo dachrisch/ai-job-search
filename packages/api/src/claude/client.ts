@@ -48,8 +48,19 @@ These rankings consider the job requirements against your preferences.`
     return 'We have found a good selection of jobs with reasonable coverage. I recommend proceeding with the current results.'
   }
 
-  // Default fallback response
-  return 'Mock response from Claude API (token not valid)'
+  // Check if asking for JSON-based response (job boards for search)
+  if (message.includes('best') && message.includes('job boards')) {
+    return JSON.stringify({
+      sites: ['linkedin.com', 'indeed.com', 'glassdoor.com', 'dice.com', 'builtin.com'],
+      keywords: 'software engineer'
+    })
+  }
+
+  // Default fallback response - return generic but valid JSON
+  return JSON.stringify({
+    sites: ['linkedin.com', 'indeed.com', 'glassdoor.com'],
+    keywords: 'job search'
+  })
 }
 
 export async function callClaude(userId: string, message: string): Promise<string> {
