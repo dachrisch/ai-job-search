@@ -12,3 +12,10 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Python / crawler
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+crawler/.env

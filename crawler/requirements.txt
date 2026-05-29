@@ -1,4 +1,21 @@
+# Web scraping
 scrapy==2.16.0
-requests==2.31.0
-python-dotenv==1.0.0
+beautifulsoup4==4.12.3
+
+# HTTP server
 flask==3.0.0
+
+# Data validation
+pydantic==2.7.1
+
+# Redis integration (for future event-driven mode)
+redis==5.0.4
+
+# HTTP client
+requests==2.31.0
+
+# Environment variable management
+python-dotenv==1.0.0
+
+# Structured JSON logging
+python-json-logger==2.0.7
