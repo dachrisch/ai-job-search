@@ -4,10 +4,13 @@
 This project is an AI-powered job search platform designed to discover, crawl, and rank job listings based on user queries. It uses a modular, event-driven architecture to coordinate between a web UI, an orchestration API, a Python-based web crawler, and Claude AI for intelligent analysis.
 
 ### Core Architecture
+- **Crawler Service Integration:** Replaced Node.js `WebScraper` with a robust `CrawlerSource` that integrates with the Python Scrapy service. `JobSourceManager` now handles bulk scraping via `CrawlerSource` with a fallback to `MockSource`.
 - **Event-Driven:** Uses BullMQ and Redis to manage asynchronous tasks (search refinement, crawling, ranking).
-- **AI-Powered:** Integrates with Anthropic's Claude API to refine search parameters and rank job matches.
-- **Real-Time Updates:** Employs Server-Sent Events (SSE) to stream progress from the backend to the frontend.
-- **Monorepo Structure:** Managed via npm workspaces.
+- **Real-Time Updates:** Employs Server-Sent Events (SSE) to stream progress from backend to frontend.
+
+## Service Connectivity
+- **Primary Backend Services:** MongoDB and Redis are hosted on `10.185.182.205`.
+- **Crawler Service:** Hosted on `127.0.0.1:5000` (or configurable via `CRAWLER_SERVICE_URL`).
 
 ## Technology Stack
 - **Frontend:** React 19, TypeScript, Vite, Vanilla CSS.
