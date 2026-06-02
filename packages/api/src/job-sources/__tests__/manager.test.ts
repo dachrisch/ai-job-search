@@ -6,7 +6,7 @@ describe('JobSourceManager', () => {
   it('should register and retrieve job sources', () => {
     const sources = manager.getSources()
     expect(sources.length).toBeGreaterThan(0)
-    expect(sources.some(s => s.name === 'WebScraper')).toBe(true)
+    expect(sources.some(s => s.name === 'CrawlerSource')).toBe(true)
   })
 
   it('should find sources that can handle a domain', () => {
@@ -14,9 +14,9 @@ describe('JobSourceManager', () => {
     expect(matchingSources.length).toBeGreaterThan(0)
   })
 
-  it('should scrape jobs from multiple sources', async () => {
-    const results = await manager.scrapeJobs(['linkedin.com'], 'software engineer')
+  it('should scrape jobs via CrawlerSource', async () => {
+    const results = await manager.scrapeJobs(['https://linkedin.com/jobs'], 'software engineer')
     expect(Array.isArray(results)).toBe(true)
-    expect(results.length > 0 || results.some(r => r.errors.length > 0)).toBe(true)
+    expect(results.length).toBeGreaterThan(0)
   })
 })

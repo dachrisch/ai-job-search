@@ -58,6 +58,7 @@ describe.skipIf(process.env.CI)('Claude API Client', () => {
 
     const response = await callClaude(user._id.toString(), 'Hello Claude')
     expect(response).toBeTypeOf('string')
-    expect(response).toContain('Mock response')
+    expect(response).toContain('sites')
+    expect(response).toContain('linkedin.com')
   })
 })

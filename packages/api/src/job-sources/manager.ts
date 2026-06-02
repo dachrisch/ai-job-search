@@ -1,6 +1,6 @@
-import { JobSource, JobScraperResult, JobSourceConfig } from './interfaces'
-import { WebScraper } from './web-scraper'
-import { MockSource } from './mock-source'
+import { JobSource, JobScraperResult, JobSourceConfig } from './interfaces.js'
+import { CrawlerSource } from './crawler-source.js'
+import { MockSource } from './mock-source.js'
 
 export interface AggregatedResults {
   source: string
@@ -20,10 +20,39 @@ export class JobSourceManager {
 
   private initializeSources(): void {
     this.sources = [
-      new WebScraper(),
-      new MockSource() // Fallback source always available
-      // More sources can be added here (LinkedInScraper, IndeedAPI, etc.)
+      new CrawlerSource(), // Primary
+      new MockSource()    // Fallback
     ]
+  }
+
+  async scrapeJobs(urls: string[], keywords: string, config?: JobSourceConfig): Promise<JobScraperResult[]> {
+    // Try CrawlerSource first
+    const crawler = this.sources.find(s => s instanceof CrawlerSource)
+    if (crawler) {
+      const results = await crawler.scrapeBulk(urls, keywords, config)
+      
+      // If we got jobs, return them
+      if (results.some(r => r.jobs.length > 0)) {
+        return results
+      }
+      
+      // If we got no jobs and there were errors, we might want to try fallback
+      // but for now let's just return what we got if it's the primary source
+      // unless all results were errors
+      if (results.every(r => r.jobs.length === 0 && r.errors.length > 0)) {
+        console.log('CrawlerSource failed completely, trying fallbacks...')
+      } else {
+        return results
+      }
+    }
+
+    // Fallback to MockSource if needed or if primary failed
+    const mock = this.sources.find(s => s instanceof MockSource)
+    if (mock) {
+      return mock.scrapeBulk(urls, keywords, config)
+    }
+
+    return []
   }
 
   getSources(): JobSource[] {
@@ -31,51 +60,10 @@ export class JobSourceManager {
   }
 
   findSourcesForDomains(domains: string[]): JobSource[] {
-    return this.sources.filter(source =>
-      domains.some(domain => source.canHandle(domain))
+    const matching = this.sources.filter(s =>
+      domains.some(domain => s.canHandle(domain))
     )
-  }
-
-  async scrapeJobs(
-    domains: string[],
-    keywords: string,
-    config?: JobSourceConfig
-  ): Promise<JobScraperResult[]> {
-    const sources = this.findSourcesForDomains(domains)
-
-    if (sources.length === 0) {
-      console.warn(`No scrapers found for domains: ${domains.join(', ')}`)
-      return [{
-        jobs: [],
-        errors: [{ message: `No job sources available for domains: ${domains.join(', ')}` }],
-        source: 'JobSourceManager'
-      }]
-    }
-
-    const results = await Promise.all(
-      domains.map(async (domain) => {
-        const source = sources.find(s => s.canHandle(domain))
-        if (!source) {
-          return {
-            jobs: [],
-            errors: [{ message: `No scraper for domain: ${domain}`, site: domain }],
-            source: 'JobSourceManager'
-          }
-        }
-
-        try {
-          return await source.scrape(`https://${domain}/jobs`, keywords, config)
-        } catch (error: any) {
-          return {
-            jobs: [],
-            errors: [{ message: `Scraper failed: ${error.message}`, site: domain }],
-            source: source.name
-          }
-        }
-      })
-    )
-
-    return results
+    return matching.length > 0 ? matching : this.sources
   }
 
   async scrapeWithDiscovery(
@@ -106,8 +94,8 @@ export class JobSourceManager {
         if (scraped.has(url)) continue
         scraped.add(url)
 
-        // Scrape the page
-        const results = await this.scrapeJobs([this.extractDomain(url)], keywords)
+        // Scrape the page - Using scrapeJobs which now calls CrawlerSource.scrapeBulk
+        const results = await this.scrapeJobs([url], keywords)
 
         // Collect jobs
         results.forEach(result => {
@@ -136,14 +124,6 @@ export class JobSourceManager {
       jobs: allJobs,
       discoveredPages: [],
       errors: []
-    }
-  }
-
-  private extractDomain(url: string): string {
-    try {
-      return new URL(url).hostname || 'unknown'
-    } catch {
-      return 'unknown'
     }
   }
 }

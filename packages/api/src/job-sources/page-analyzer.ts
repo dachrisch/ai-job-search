@@ -51,7 +51,7 @@ Return ONLY valid JSON array, no other text:
     minConfidence: number
   ): AnalyzedPage[] {
     try {
-      const jsonMatch = response.match(/\[\s\S]*\]/)
+      const jsonMatch = response.match(/\[[\s\S]*\]/)
       if (!jsonMatch) {
         throw new Error('No JSON array found in response')
       }

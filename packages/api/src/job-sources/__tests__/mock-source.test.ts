@@ -15,4 +15,12 @@ describe('MockSource', () => {
     expect(result.errors.length).toBe(0)
     expect(result.source).toBe('MockSource')
   })
+
+  it('should return results for multiple URLs via scrapeBulk', async () => {
+    const urls = ['https://site1.com', 'https://site2.com']
+    const results = await (source as any).scrapeBulk(urls, 'software engineer')
+    expect(results.length).toBe(2)
+    expect(results[0].jobs.length).toBe(6)
+    expect(results[1].jobs.length).toBe(6)
+  })
 })

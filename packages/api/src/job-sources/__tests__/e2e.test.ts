@@ -1,5 +1,4 @@
 import { JobSourceManager } from '../manager'
-import { WebScraper } from '../web-scraper'
 import { RateLimiter } from '../rate-limiter'
 import { MockSource } from '../mock-source'
 
@@ -132,12 +131,6 @@ describe('Job Discovery E2E - JobSourceManager Integration', () => {
   })
 
   describe('Source Manager Registration', () => {
-    it('should have WebScraper registered as default source', () => {
-      const sources = manager.getSources()
-      const hasScraper = sources.some(s => s.name === 'WebScraper')
-      expect(hasScraper).toBe(true)
-    })
-
     it('should have MockSource registered as fallback', () => {
       const sources = manager.getSources()
       const hasMock = sources.some(s => s.name === 'MockSource')

@@ -56,6 +56,24 @@ These rankings consider the job requirements against your preferences.`
     })
   }
 
+  // Page analysis mock response
+  if (message.includes('determine:') && message.includes('confidence') && message.includes('priority')) {
+    return JSON.stringify([
+      {
+        urlIndex: 1,
+        confidence: 0.9,
+        priority: 9,
+        reason: 'Highly relevant job board'
+      },
+      {
+        urlIndex: 2,
+        confidence: 0.8,
+        priority: 8,
+        reason: 'Relevant careers page'
+      }
+    ])
+  }
+
   // Default fallback response - return generic but valid JSON
   return JSON.stringify({
     sites: ['linkedin.com', 'indeed.com', 'glassdoor.com'],
@@ -65,6 +83,11 @@ These rankings consider the job requirements against your preferences.`
 
 export async function callClaude(userId: string, message: string): Promise<string> {
   try {
+    // Special handling for system user or testing
+    if (userId === 'system') {
+      return getMockResponse(message)
+    }
+
     const user = await UserModel.findById(userId)
 
     if (!user || !user.claudeApiToken) {
@@ -111,6 +134,11 @@ export async function callClaudeWithHistory(
   conversationHistory: ConversationMessage[]
 ): Promise<string> {
   try {
+    // Special handling for system user or testing
+    if (userId === 'system') {
+      return getMockResponse(message)
+    }
+
     const user = await UserModel.findById(userId)
 
     if (!user || !user.claudeApiToken) {

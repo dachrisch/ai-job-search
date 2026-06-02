@@ -1,4 +1,4 @@
-import { JobSource, JobScraperResult } from './interfaces'
+import { JobSource, JobScraperResult, JobSourceConfig } from './interfaces'
 
 export class MockSource implements JobSource {
   name = 'MockSource'
@@ -8,7 +8,7 @@ export class MockSource implements JobSource {
     return true
   }
 
-  async scrape(url: string, keywords: string): Promise<JobScraperResult> {
+  async scrape(url: string, keywords: string, config?: JobSourceConfig): Promise<JobScraperResult> {
     const mockJobs = [
       {
         title: 'Senior Software Engineer',
@@ -72,5 +72,9 @@ export class MockSource implements JobSource {
       source: this.name,
       timestamp: new Date()
     }
+  }
+
+  async scrapeBulk(urls: string[], keywords: string, config?: JobSourceConfig): Promise<JobScraperResult[]> {
+    return Promise.all(urls.map(url => this.scrape(url, keywords, config)))
   }
 }

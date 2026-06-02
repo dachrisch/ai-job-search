@@ -15,7 +15,7 @@ Use when:
 - Starting development on job-search for the first time
 - Containers need cleanup/restart
 - MongoDB or Redis connections fail
-- You see errors like `ECONNREFUSED 127.0.0.1:6379` or `connect ECONNREFUSED 10.185.182.250:27017`
+- You see errors like `ECONNREFUSED 127.0.0.1:6379` or `connect EHOSTUNREACH 10.185.182.205:27017`
 
 ## The Sequence
 
@@ -64,9 +64,15 @@ EOF
 
 ### 3. Verify Services Are Ready
 
+Get the correct IP from servyy-test.lxd:
 ```bash
-timeout 3 nc -zv 10.185.182.250 27017 && echo "MongoDB ready"
-timeout 3 nc -zv 10.185.182.250 6379 && echo "Redis ready"
+./setup_test_container.sh  # Shows: servyy-test.lxd has address 10.185.182.205
+```
+
+Then verify containers:
+```bash
+timeout 3 nc -zv 10.185.182.205 27017 && echo "MongoDB ready"
+timeout 3 nc -zv 10.185.182.205 6379 && echo "Redis ready"
 ```
 
 ### 4. Start the App
@@ -79,8 +85,8 @@ npm run start:dev
 
 Or manually with env vars:
 ```bash
-export MONGODB_URI="mongodb://10.185.182.250:27017/job_search"
-export REDIS_URL="redis://10.185.182.250:6379"
+export MONGODB_URI="mongodb://10.185.182.205:27017/job_search"
+export REDIS_URL="redis://10.185.182.205:6379"
 npm run dev
 ```
 
@@ -106,7 +112,7 @@ curl http://localhost:3000/api/health
 | `Wrong mongod version` / featureCompatibilityVersion 8.2 | mongo:7 reading mongo:8 data | Use mongo:8 only, delete old volumes |
 | `MongoDB cannot start: kernel incompatible` | mongo:8.3 on Linux 7.0.0 kernel | Use mongo:8.0 or mongo:8 (not 8.3) |
 | `ECONNREFUSED 127.0.0.1:6379` | Env vars not loaded (dotenv broken) | Export directly: `export REDIS_URL=...` |
-| `ECONNREFUSED 10.185.182.250:27018` | Wrong port in .env (old config) | Verify .env has 27017, export env vars directly |
+| `EHOSTUNREACH 10.185.182.205:27017` | Wrong servyy-test.lxd IP in env vars | Run `./setup_test_container.sh` to get correct IP |
 | `Port 27017 still not responding` | MongoDB still initializing | Wait 5+ seconds, then verify with `nc -zv` |
 | No root route (404 on `/`) | API doesn't have root endpoint | Use `/api/health` or `/api/auth` endpoints |
 | `Error: connect ECONNREFUSED` during startup | Event queue trying to connect before servers ready | This is normal, server continues - just wait |
@@ -115,9 +121,15 @@ curl http://localhost:3000/api/health
 
 **REQUIRED - Must be set before `npm run dev`:**
 
+First, get the correct servyy-test.lxd IP:
 ```bash
-export MONGODB_URI="mongodb://10.185.182.250:27017/job_search"
-export REDIS_URL="redis://10.185.182.250:6379"
+./setup_test_container.sh  # Shows: servyy-test.lxd has address 10.185.182.205
+```
+
+Then export the environment variables:
+```bash
+export MONGODB_URI="mongodb://10.185.182.205:27017/job_search"
+export REDIS_URL="redis://10.185.182.205:6379"
 ```
 
 **Why not .env files?**
@@ -148,9 +160,9 @@ If something fails, run this:
 # Check containers exist and are healthy
 ssh servyy-test.lxd "docker ps | grep job-search"
 
-# Check ports are open from local machine
-nc -zv 10.185.182.250 27017
-nc -zv 10.185.182.250 6379
+# Check ports are open from local machine (replace with actual servyy-test.lxd IP)
+nc -zv 10.185.182.205 27017
+nc -zv 10.185.182.205 6379
 
 # Check env vars are set
 echo $MONGODB_URI
