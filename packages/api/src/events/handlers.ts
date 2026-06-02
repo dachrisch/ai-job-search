@@ -184,7 +184,7 @@ export const eventHandlers = {
 
       await addEvent('crawl_requested', {
         searchId: data.searchId,
-        sites: analyzedPages.map(p => p.url.split('/')[2]), // Extract domain from URL
+        sites: analyzedPages.map(p => p.url), // Pass full URLs, not just domains
         keywords: data.query
       })
     } catch (error) {
