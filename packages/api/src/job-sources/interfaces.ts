@@ -33,6 +33,9 @@ export interface JobSourceConfig {
 export interface JobSource {
   name: string
   canHandle(domain: string): boolean
+  // New bulk method
+  scrapeBulk(urls: string[], keywords: string, config?: JobSourceConfig): Promise<JobScraperResult[]>
+  // Deprecating single scrape
   scrape(url: string, keywords: string, config?: JobSourceConfig): Promise<JobScraperResult>
 }
 
