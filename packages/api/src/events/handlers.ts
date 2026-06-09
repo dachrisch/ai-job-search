@@ -7,74 +7,6 @@ import { SearchService } from '../job-sources/search-service.js'
 import { PageAnalyzer } from '../job-sources/page-analyzer.js'
 import { SearchResult, AnalyzedPage } from '../job-sources/interfaces.js'
 
-// Mock job data for testing without a real crawler
-function getMockJobs(keywords: string): any[] {
-  const mockJobs = [
-    {
-      title: 'Senior Software Engineer',
-      company: 'TechCorp Inc.',
-      description: 'We are looking for an experienced Senior Software Engineer to join our growing team. You will work with modern technologies and lead technical initiatives.',
-      url: 'https://techcorp.com/jobs/senior-engineer',
-      sourceUrl: 'https://linkedin.com',
-      salary: '$150,000 - $200,000',
-      location: 'San Francisco, CA',
-      matchScore: 95
-    },
-    {
-      title: 'Full Stack Developer',
-      company: 'CloudTech Solutions',
-      description: 'Join our dynamic team as a Full Stack Developer. Experience with React, Node.js, and cloud technologies required. Remote position available.',
-      url: 'https://cloudtech.com/careers/full-stack',
-      sourceUrl: 'https://indeed.com',
-      salary: '$120,000 - $160,000',
-      location: 'Remote',
-      matchScore: 88
-    },
-    {
-      title: 'Backend Engineer - Python',
-      company: 'DataSystems Ltd',
-      description: 'We are seeking a Backend Engineer with Python expertise to build scalable microservices. Strong experience with databases and distributed systems required.',
-      url: 'https://datasystems.com/jobs/backend-python',
-      sourceUrl: 'https://stackoverflow.com',
-      salary: '$130,000 - $180,000',
-      location: 'New York, NY',
-      matchScore: 82
-    },
-    {
-      title: 'Frontend Engineer React',
-      company: 'StartupXYZ',
-      description: 'Looking for a talented Frontend Engineer with React expertise. You will create beautiful, responsive user interfaces for our web platform.',
-      url: 'https://startupxyz.com/jobs/frontend-react',
-      sourceUrl: 'https://glassdoor.com',
-      salary: '$110,000 - $150,000',
-      location: 'Austin, TX',
-      matchScore: 85
-    },
-    {
-      title: 'Software Architect',
-      company: 'Enterprise Solutions Corp',
-      description: 'Design and build large-scale software systems. 10+ years of experience required. Lead a team of talented engineers.',
-      url: 'https://enterprisesol.com/jobs/architect',
-      sourceUrl: 'https://dice.com',
-      salary: '$180,000 - $250,000',
-      location: 'Seattle, WA',
-      matchScore: 78
-    },
-    {
-      title: 'DevOps Engineer',
-      company: 'CloudInfra Inc',
-      description: 'Manage and optimize our cloud infrastructure. Kubernetes, Docker, and CI/CD pipeline experience essential.',
-      url: 'https://cloudinfra.com/jobs/devops',
-      sourceUrl: 'https://angel.co',
-      salary: '$125,000 - $165,000',
-      location: 'Remote',
-      matchScore: 80
-    }
-  ]
-
-  return mockJobs
-}
-
 const jobSourceManager = new JobSourceManager()
 
 export const eventHandlers = {
@@ -277,8 +209,11 @@ export const eventHandlers = {
         newSites: []
       })
     } catch (error) {
-      console.error('Error in crawl_deeper handler:', error)
-      await addEvent('search_evaluation', { searchId: data.searchId, jobsFound: 0 })
+      console.error('❌ Job scraping failed:', error)
+      await addEvent('search_failed', {
+        searchId: data.searchId,
+        error: `Crawler error: ${String(error)}`
+      })
     }
   },
 
@@ -339,38 +274,26 @@ export const eventHandlers = {
         return
       }
 
+      // Use JobSourceManager instead of calling external crawler
+      console.log(`   🔍 Scraping jobs from specified sources...`)
+      const results = await jobSourceManager.scrapeJobs(data.sites, data.keywords, {
+        timeout: 15000,
+        maxRetries: 2
+      })
+
+      // Aggregate jobs from all sources
       let jobs: any[] = []
-
-      try {
-        // Use JobSourceManager instead of calling external crawler
-        console.log(`   🔍 Scraping jobs from specified sources...`)
-        const results = await jobSourceManager.scrapeJobs(data.sites, data.keywords, {
-          timeout: 15000,
-          maxRetries: 2
-        })
-
-        // Aggregate jobs from all sources
-        results.forEach(result => {
-          if (result.jobs.length > 0) {
-            console.log(`   ✅ ${result.source}: Found ${result.jobs.length} jobs`)
-            jobs.push(...result.jobs)
-          }
-          if (result.errors.length > 0) {
-            console.log(`   ⚠️  ${result.source}: ${result.errors[0].message}`)
-          }
-        })
-
-        if (jobs.length === 0) {
-          console.log(`   📋 No jobs found from scrapers, using fallback mock data`)
-          jobs = getMockJobs(data.keywords)
+      results.forEach(result => {
+        if (result.jobs.length > 0) {
+          console.log(`   ✅ ${result.source}: Found ${result.jobs.length} jobs`)
+          jobs.push(...result.jobs)
         }
+        if (result.errors.length > 0) {
+          console.log(`   ⚠️  ${result.source}: ${result.errors[0].message}`)
+        }
+      })
 
-        console.log(`   ✅ Total jobs collected: ${jobs.length}`)
-      } catch (scraperError: any) {
-        console.log(`   ⚠️  Job sources unavailable: ${scraperError.message}`)
-        console.log(`   📋 Using fallback mock job data`)
-        jobs = getMockJobs(data.keywords)
-      }
+      console.log(`   ✅ Total jobs collected: ${jobs.length}`)
 
       await addEvent('jobs_scraped', {
         searchId: data.searchId,
@@ -378,8 +301,8 @@ export const eventHandlers = {
         newSites: []
       })
     } catch (error) {
-      console.error('Crawl handler failed:', error)
-      await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+      console.error('❌ Job scraping failed:', error)
+      await addEvent('search_failed', { searchId: data.searchId, error: `Crawler error: ${String(error)}` })
 
       sseManager.broadcast(data.searchId, {
         type: 'error',
@@ -388,7 +311,6 @@ export const eventHandlers = {
           searchStatus: 'failed'
         }
       })
-      throw error
     }
   },
 
