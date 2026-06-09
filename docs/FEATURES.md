@@ -203,7 +203,7 @@ This document tracks the implementation status of features across the entire pla
 - **Configuration:** 
   - `CRAWLER_SERVICE_URL` env var (defaults to `http://localhost:5000`)
   - Can connect to remote crawler service
-- **Error Handling:** Graceful fallback when crawler unavailable
+- **Error Handling:** Strict - crawler errors propagate as search failures (no fallback)
 - **Tests:** Unit tested with mocked responses
 
 ### Bulk Scraping
@@ -217,14 +217,13 @@ This document tracks the implementation status of features across the entire pla
 - **Tests:** E2E integration tests
 
 ### MockSource Fallback
-- **Status:** ✅ IMPLEMENTED (INTENTIONAL MOCK)
+- **Status:** ❌ REMOVED
 - **Details:**
-  - Returns 6 hardcoded mock jobs when crawler unavailable
-  - Allows continued testing without live crawler
-  - Used as fallback in development/testing
-  - NOT intended for production use
-- **Mock Data:** Realistic job listings with titles, companies, salaries
-- **Use Case:** Development, demo, and fallback scenarios
+  - Deleted from codebase entirely
+  - Job discovery now depends exclusively on real Python Scrapy crawler
+  - No fallback to mock data
+  - Crawler service (port 5000) is mandatory
+- **Removal Date:** 2026-06-09
 
 ### Job Deduplication
 - **Status:** 🟡 MOCKED (PARTIAL)
