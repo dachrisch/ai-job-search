@@ -75,18 +75,41 @@ timeout 3 nc -zv 10.185.182.205 27017 && echo "MongoDB ready"
 timeout 3 nc -zv 10.185.182.205 6379 && echo "Redis ready"
 ```
 
-### 4. Start the App
+### 4. Start Python Crawler Service (MANDATORY - Must Start First)
 
-**One command starts both API and frontend:**
+**CRITICAL:** The crawler service MUST be running before the API starts.
 
 ```bash
-npm run start:dev
+cd /home/cda/dev/job-search/crawler
+python3 server.py
 ```
 
-Or manually with env vars:
+Expected output:
+```
+Running on http://0.0.0.0:5000
+```
+
+Verify it's listening:
 ```bash
+curl http://localhost:5000/health
+# Expected: 200 OK
+```
+
+**If pydantic import fails:**
+```bash
+cd /home/cda/dev/job-search/crawler
+pip cache purge
+pip install -q --no-cache-dir -r requirements.txt
+```
+
+### 5. Start the API and Frontend
+
+**Start API in new terminal (after crawler is running):**
+
+```bash
+cd /home/cda/dev/job-search/packages/api
 export MONGODB_URI="mongodb://10.185.182.205:27017/job_search"
-export REDIS_URL="redis://10.185.182.205:6379"
+export REDIS_URL="redis://10.185.182.250:6379"
 npm run dev
 ```
 
@@ -97,12 +120,41 @@ Wait for:
 ✅ Server running on port 3000
 ```
 
-### 6. Test the API
+**Start Frontend in another terminal:**
+
+```bash
+cd /home/cda/dev/job-search/packages/frontend
+npm run dev
+```
+
+Open browser to `http://localhost:5173`
+
+### 6. Test Services
+
+**Test Crawler:**
+```bash
+curl http://localhost:5000/health
+# Expected: 200 OK
+```
+
+**Test API:**
 
 ```bash
 curl http://localhost:3000/api/health
 # Expected: {"status":"ok"}
 ```
+
+## Critical: Crawler Service is Mandatory
+
+**The Python crawler service on port 5000 is REQUIRED.** The API will fail searches if the crawler is not running.
+
+**Start order matters:**
+1. ✅ Start MongoDB + Redis (containers)
+2. ✅ Start Python Crawler (port 5000)
+3. ✅ Start Node API (port 3000)
+4. ✅ Start Frontend (port 5173)
+
+If crawler isn't running, searches will fail with: `search_failed: Crawler error: connect ECONNREFUSED 127.0.0.1:5000`
 
 ## Pitfalls and Fixes
 
@@ -112,8 +164,12 @@ curl http://localhost:3000/api/health
 | `Wrong mongod version` / featureCompatibilityVersion 8.2 | mongo:7 reading mongo:8 data | Use mongo:8 only, delete old volumes |
 | `MongoDB cannot start: kernel incompatible` | mongo:8.3 on Linux 7.0.0 kernel | Use mongo:8.0 or mongo:8 (not 8.3) |
 | `ECONNREFUSED 127.0.0.1:6379` | Env vars not loaded (dotenv broken) | Export directly: `export REDIS_URL=...` |
-| `EHOSTUNREACH 10.185.182.205:27017` | Wrong servyy-test.lxd IP in env vars | Run `./setup_test_container.sh` to get correct IP |
+| `EHOSTUNREACH 10.185.182.250:27017` | Wrong servyy-test.lxd IP in env vars | Use 10.185.182.250 (not .205) |
 | `Port 27017 still not responding` | MongoDB still initializing | Wait 5+ seconds, then verify with `nc -zv` |
+| `ModuleNotFoundError: pydantic` | Crawler dependencies not installed | `pip install -q --no-cache-dir -r crawler/requirements.txt` |
+| `Address already in use` on port 5000 | Crawler already running | `pkill -f "python3 server.py"` |
+| `Connection refused` when API reaches crawler | Crawler not started or not listening | Verify: `curl http://localhost:5000/health` |
+| `Crawler service error` in search failures | Crawler service not running | Start crawler first before API |
 | No root route (404 on `/`) | API doesn't have root endpoint | Use `/api/health` or `/api/auth` endpoints |
 | `Error: connect ECONNREFUSED` during startup | Event queue trying to connect before servers ready | This is normal, server continues - just wait |
 
