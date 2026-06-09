@@ -1,6 +1,5 @@
 import { JobSource, JobScraperResult, JobSourceConfig } from './interfaces.js'
 import { CrawlerSource } from './crawler-source.js'
-import { MockSource } from './mock-source.js'
 
 export interface AggregatedResults {
   source: string
@@ -19,40 +18,16 @@ export class JobSourceManager {
   }
 
   private initializeSources(): void {
-    this.sources = [
-      new CrawlerSource(), // Primary
-      new MockSource()    // Fallback
-    ]
+    this.sources = [new CrawlerSource()]
   }
 
   async scrapeJobs(urls: string[], keywords: string, config?: JobSourceConfig): Promise<JobScraperResult[]> {
-    // Try CrawlerSource first
-    const crawler = this.sources.find(s => s instanceof CrawlerSource)
-    if (crawler) {
-      const results = await crawler.scrapeBulk(urls, keywords, config)
-      
-      // If we got jobs, return them
-      if (results.some(r => r.jobs.length > 0)) {
-        return results
-      }
-      
-      // If we got no jobs and there were errors, we might want to try fallback
-      // but for now let's just return what we got if it's the primary source
-      // unless all results were errors
-      if (results.every(r => r.jobs.length === 0 && r.errors.length > 0)) {
-        console.log('CrawlerSource failed completely, trying fallbacks...')
-      } else {
-        return results
-      }
+    const crawler = this.sources[0] // Only CrawlerSource is available
+    if (!crawler) {
+      return []
     }
 
-    // Fallback to MockSource if needed or if primary failed
-    const mock = this.sources.find(s => s instanceof MockSource)
-    if (mock) {
-      return mock.scrapeBulk(urls, keywords, config)
-    }
-
-    return []
+    return crawler.scrapeBulk(urls, keywords, config)
   }
 
   getSources(): JobSource[] {
