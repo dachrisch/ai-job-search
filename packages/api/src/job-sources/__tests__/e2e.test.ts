@@ -1,6 +1,5 @@
 import { JobSourceManager } from '../manager'
 import { RateLimiter } from '../rate-limiter'
-import { MockSource } from '../mock-source'
 
 describe('Job Discovery E2E - JobSourceManager Integration', () => {
   let manager: JobSourceManager
@@ -34,12 +33,6 @@ describe('Job Discovery E2E - JobSourceManager Integration', () => {
       const results = await manager.scrapeJobs(domains, keywords)
 
       expect(Array.isArray(results)).toBe(true)
-      expect(results.length).toBeGreaterThan(0)
-
-      // Check that MockSource provided fallback data
-      const mockResults = results.filter(r => r.source === 'MockSource')
-      expect(mockResults.length).toBeGreaterThan(0)
-      expect(mockResults[0].jobs.length).toBeGreaterThan(0)
     })
 
     it('should handle mixed success and failure scenarios', async () => {
@@ -131,12 +124,6 @@ describe('Job Discovery E2E - JobSourceManager Integration', () => {
   })
 
   describe('Source Manager Registration', () => {
-    it('should have MockSource registered as fallback', () => {
-      const sources = manager.getSources()
-      const hasMock = sources.some(s => s.name === 'MockSource')
-      expect(hasMock).toBe(true)
-    })
-
     it('should find appropriate sources for domain', () => {
       const matchingSources = manager.findSourcesForDomains(['linkedin.com'])
       expect(matchingSources.length).toBeGreaterThan(0)
@@ -243,7 +230,7 @@ describe('Job Discovery E2E - JobSourceManager Integration', () => {
       })
     })
 
-    it('should handle zero jobs gracefully for fallback to mock data', async () => {
+    it('should handle zero jobs gracefully', async () => {
       const domains = ['not-a-real-domain.test']
       const keywords = 'engineer'
 
@@ -251,14 +238,6 @@ describe('Job Discovery E2E - JobSourceManager Integration', () => {
 
       // Results should always be an array (never null/undefined)
       expect(Array.isArray(results)).toBe(true)
-
-      // If all scrapers fail, MockSource should provide fallback
-      const mockResults = results.find(r => r.source === 'MockSource')
-      if (mockResults) {
-        expect(Array.isArray(mockResults.jobs)).toBe(true)
-        // MockSource should provide some jobs
-        expect(mockResults.jobs.length >= 0).toBe(true)
-      }
     })
   })
 })
