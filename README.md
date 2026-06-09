@@ -53,8 +53,16 @@ This is a monorepo containing three main packages:
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
-## API Documentation
+## Documentation
 
+### Feature Status & Implementation Details
+**[FEATURES.md](docs/FEATURES.md)** - Comprehensive feature implementation status tracking:
+- ✅ Implemented features with test coverage
+- 🟡 Mocked/partial implementations and known limitations
+- ⏳ Outstanding features and future enhancements
+- Security considerations and production readiness
+
+### API Documentation
 Complete API documentation is available in [API.md](docs/API.md), including:
 
 - Authentication endpoints (register, login, set Claude token)

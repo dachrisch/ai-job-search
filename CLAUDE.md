@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🔴 CRITICAL: Startup Requirements
+
+**ALL development and testing MUST use servyy-test.lxd infrastructure:**
+- **MongoDB:** `mongodb://10.185.182.250:27017/job_search`
+- **Redis:** `redis://10.185.182.250:6379`
+- **In-memory databases are NOT allowed** (no `USE_MEMORY_DB` option)
+
+See **[.superpowers/startup/startup.md](.superpowers/startup/startup.md)** for complete startup checklist and troubleshooting.
+
 ## Quick Reference: Common Commands
 
 ### Development
@@ -143,10 +152,11 @@ All jobs must pass for branch protection. No external services needed in CI (tes
 
 ---
 
-## Architecture Deep Dives
+## Architecture Deep Dives & Documentation
 
-For detailed architecture documentation, see:
+For detailed documentation, see:
 
+- **FEATURES.md** - Complete feature status (implemented, mocked, outstanding), security & production readiness assessment
 - **ARCHITECTURE.md** - System design, event flow diagrams, database schemas
 - **README.md** - Features, tech stack, project structure
 - **API.md** - REST API endpoint reference and examples
