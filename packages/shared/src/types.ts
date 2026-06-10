@@ -20,6 +20,28 @@ export interface Job {
   matchScore?: number
   matchReasoning?: string
   searchSessionId: string
+  companyId?: string
+  discoveryMethod: 'company_page'
+  keywordMatchScore?: number
+  keywordMatchReasoning?: string
+  extractedAt: Date
+  scoredAt?: Date
+  scoredVersion: number
+}
+
+export interface Company {
+  _id?: string
+  url: string
+  name: string
+  location?: string
+  industry?: string
+  searchQuery: string
+  discoveredFrom: string
+  status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed'
+  crawlAttempts: number
+  lastCrawlTime?: Date
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface Site {
@@ -47,6 +69,13 @@ export interface SearchSession {
   startedAt: Date
   completedAt?: Date
   createdAt: Date
+  companiesDiscovered: number
+  companiesCrawled: number
+  companiesRemaining: number
+  jobsExtracted: number
+  jobsScored: number
+  currentCrawlBatch: number
+  expandedSearch: boolean
 }
 
 export interface AuthResponse {
