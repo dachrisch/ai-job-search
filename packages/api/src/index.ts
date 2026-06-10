@@ -11,40 +11,39 @@ import { SSEManager } from './utils/SSEManager.js'
 import searchRoutes from './routes/searches.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-console.log('[CONFIG] Current working directory:', process.cwd())
-console.log('[CONFIG] __dirname:', __dirname)
-console.log('[CONFIG] USE_MEMORY_DB before dotenv:', process.env.USE_MEMORY_DB)
 
-const envPath1 = path.resolve(__dirname, '../.env')
-const envPath2 = path.resolve(__dirname, '../../.env')
-console.log('[CONFIG] Trying to load .env from:', envPath1)
-console.log('[CONFIG] Trying to load .env from:', envPath2)
+// Load environment variables
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
-dotenv.config({ path: envPath1 })
-dotenv.config({ path: envPath2 })
+/**
+ * Creates and configures the Express app
+ * This is separated from server startup to allow testing
+ */
+export function createApp(): { app: Express; sseManager: SSEManager } {
+  const app: Express = express()
+  const sseManager = new SSEManager()
 
-console.log('[CONFIG] USE_MEMORY_DB after dotenv:', process.env.USE_MEMORY_DB)
-console.log('[CONFIG] MONGODB_URI after dotenv:', process.env.MONGODB_URI)
+  app.use(express.json())
 
-const app: Express = express()
+  app.use('/api/auth', authRoutes)
+  app.use('/api/searches', streamRouter(sseManager))
+  app.use('/api/searches', searchRoutes)
+
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok' })
+  })
+
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error('Error:', err)
+    res.status(err.status || 500).json({ error: err.message || 'Internal server error' })
+  })
+
+  return { app, sseManager }
+}
+
+const { app, sseManager } = createApp()
 const PORT = process.env.PORT || 3000
-
-const sseManager = new SSEManager()
-
-app.use(express.json())
-
-app.use('/api/auth', authRoutes)
-app.use('/api/searches', streamRouter(sseManager))
-app.use('/api/searches', searchRoutes)
-
-app.get('/api/health', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' })
-})
-
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err)
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' })
-})
 
 async function startServer() {
   try {
@@ -70,7 +69,11 @@ async function startServer() {
   }
 }
 
-startServer()
+// Only start server if not in a test environment
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  startServer()
+}
 
 export default app
 export { sseManager }
+export { startServer }
