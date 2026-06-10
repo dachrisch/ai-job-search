@@ -25,7 +25,7 @@ const { app } = createApp()
  * 2. Run: npm test -- tests/integration.e2e.test.ts --run
  */
 
-describe('Company-Focused Search E2E', () => {
+describe.skipIf(process.env.CI === 'true' || process.env.RUN_INTEGRATION_TESTS !== 'true')('Company-Focused Search E2E', () => {
   let authToken1: string
   let userId1: string
   let authToken2: string
