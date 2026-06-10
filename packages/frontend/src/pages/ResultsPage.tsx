@@ -1,18 +1,8 @@
+import { useState } from 'react'
 import { useSSE } from '../hooks/useSSE'
 import { ProgressDisplay } from '../components/ProgressDisplay'
-import { JobCard } from '../components/JobCard'
-
-interface Job {
-  id: string
-  title: string
-  company: string
-  description: string
-  url: string
-  salary?: string
-  location: string
-  matchScore: number
-  matchReasoning: string
-}
+import { SearchProgress } from '../components/SearchProgress'
+import { JobList } from '../components/JobList'
 
 interface ResultsPageProps {
   searchId: string
@@ -22,9 +12,16 @@ interface ResultsPageProps {
 
 export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
   const { status, iterationCount, jobs, isConnected, error } = useSSE(searchId, token)
+  const [loadMoreCallCount, setLoadMoreCallCount] = useState(0)
+
+  const handleLoadMore = () => {
+    setLoadMoreCallCount(prev => prev + 1)
+  }
+
+  const isSearchRunning = status === 'running'
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
       <button onClick={onBack} style={{ marginBottom: '20px' }}>← Back to Search</button>
 
       <h1>Search Results</h1>
@@ -58,9 +55,36 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
 
       <ProgressDisplay status={status} iterationCount={iterationCount} jobsFound={jobs.length} />
 
-      {jobs.map(job => (
-        <JobCard key={job.id} job={job} />
-      ))}
+      {/* Two-column layout: sidebar (progress) + main (jobs) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '250px 1fr',
+        gap: '20px',
+        marginTop: '30px'
+      }}>
+        {/* Sidebar with progress */}
+        <div style={{
+          position: 'sticky',
+          top: '20px',
+          height: 'fit-content'
+        }}>
+          <SearchProgress searchId={searchId} />
+        </div>
+
+        {/* Main content with job list */}
+        <div style={{
+          padding: '20px',
+          backgroundColor: 'white',
+          borderRadius: '4px',
+          border: '1px solid #ddd'
+        }}>
+          <JobList
+            searchId={searchId}
+            onLoadMore={handleLoadMore}
+            isLoading={isSearchRunning}
+          />
+        </div>
+      </div>
     </div>
   )
 }
