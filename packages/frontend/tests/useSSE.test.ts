@@ -24,7 +24,7 @@ describe('useSSE Hook', () => {
     renderHook(() => useSSE(mockSearchId, mockToken))
 
     expect(EventSourceMock).toHaveBeenCalledWith(
-      `/api/searches/${mockSearchId}/stream`,
+      `/api/searches/${mockSearchId}/stream?token=${encodeURIComponent(mockToken)}`,
       expect.objectContaining({ withCredentials: false })
     )
   })
