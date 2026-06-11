@@ -30,13 +30,14 @@ export interface Job {
 }
 
 export interface Company {
-  _id?: string
+  _id: string
   url: string
   name: string
   location?: string
   industry?: string
   searchQuery: string
-  discoveredFrom: string
+  discoveredFrom: 'searxng' | 'manual'
+  confidence?: 'high' | 'medium' | 'low'
   status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed'
   crawlAttempts: number
   lastCrawlTime?: Date
@@ -122,4 +123,12 @@ export interface ClaudeRankingResult {
   jobId: string
   matchScore: number
   reasoning: string
+}
+
+export interface DiscoveredCompany {
+  url: string
+  name: string
+  title: string                  // page title from search result
+  snippet: string                // search result snippet
+  confidence: 'high' | 'medium' | 'low'
 }
