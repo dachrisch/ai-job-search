@@ -150,20 +150,31 @@ EOF
 
 # Step 3: Verify database connectivity
 verify_databases() {
-    log_info "Step 3: Verifying database connectivity"
+    log_info "Step 3: Verifying database connectivity from localhost"
 
-    # Wait for MongoDB
-    if ! timeout 10 bash -c "while ! nc -z $SERVYY_TEST_IP $MONGO_PORT 2>/dev/null; do sleep 0.5; done"; then
-        log_warn "MongoDB on $SERVYY_TEST_IP:$MONGO_PORT not responding (might be DNS issue, continuing anyway)"
-    else
+    # Wait for MongoDB - CRITICAL: API needs this to work
+    log_info "Checking MongoDB at $SERVYY_TEST_IP:$MONGO_PORT..."
+    if timeout 15 bash -c "while ! nc -z $SERVYY_TEST_IP $MONGO_PORT 2>/dev/null; do sleep 0.5; done"; then
         log_success "MongoDB is reachable"
+    else
+        log_error "MongoDB on $SERVYY_TEST_IP:$MONGO_PORT is NOT reachable from localhost"
+        log_error "The API and frontend won't work without database connectivity."
+        log_error ""
+        log_error "Troubleshooting:"
+        log_error "  1. Verify servyy-test.lxd IP: ping servyy-test.lxd"
+        log_error "  2. Check container ports: ssh servyy-test.lxd 'docker ps | grep job-search'"
+        log_error "  3. Test SSH: ssh servyy-test.lxd 'nc -z localhost 27017 && echo OK'"
+        log_error "  4. Check current IP: grep SERVYY_TEST_IP $0 | head -1"
+        return 1
     fi
 
     # Wait for Redis
-    if ! timeout 10 bash -c "while ! nc -z $SERVYY_TEST_IP $REDIS_PORT 2>/dev/null; do sleep 0.5; done"; then
-        log_warn "Redis on $SERVYY_TEST_IP:$REDIS_PORT not responding (might be DNS issue, continuing anyway)"
-    else
+    log_info "Checking Redis at $SERVYY_TEST_IP:$REDIS_PORT..."
+    if timeout 15 bash -c "while ! nc -z $SERVYY_TEST_IP $REDIS_PORT 2>/dev/null; do sleep 0.5; done"; then
         log_success "Redis is reachable"
+    else
+        log_error "Redis on $SERVYY_TEST_IP:$REDIS_PORT is NOT reachable from localhost"
+        return 1
     fi
 }
 
