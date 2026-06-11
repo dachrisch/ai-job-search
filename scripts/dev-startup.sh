@@ -300,9 +300,11 @@ async function createTestUser() {
 createTestUser();
 NODESCRIPT
 
-    # Run the script with environment variables
+    # Run the script with environment variables from project root (where node_modules exists)
+    cd "$PROJECT_ROOT"
     MONGODB_URI="mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search" \
     node "$TEMP_SCRIPT" 2>/dev/null || true
+    cd - >/dev/null
 
     rm -f "$TEMP_SCRIPT"
 
