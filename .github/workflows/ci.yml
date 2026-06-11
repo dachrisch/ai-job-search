@@ -61,6 +61,12 @@ jobs:
           MONGODB_URI: 'mongodb://localhost:27017/job_search_test'
           REDIS_URL: 'redis://localhost:6379'
 
+      - name: Build Shared TypeScript
+        run: npm run build
+        working-directory: packages/shared
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
       - name: Build API TypeScript
         run: npm run build
         working-directory: packages/api
@@ -70,6 +76,8 @@ jobs:
       - name: Build Frontend
         run: npm run build
         working-directory: packages/frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
 
   lint:
     name: Code Quality
