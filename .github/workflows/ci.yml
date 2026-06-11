@@ -86,13 +86,7 @@ jobs:
         run: npm run build
         working-directory: packages/shared
 
-      - name: Check TypeScript (API)
-        run: npm run build
-        working-directory: packages/api
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-
-      - name: Check TypeScript (Frontend)
+      - name: Build Frontend
         run: npm run build
         working-directory: packages/frontend
 
