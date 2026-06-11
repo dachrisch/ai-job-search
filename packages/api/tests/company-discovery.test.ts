@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// Mock the claude client module FIRST - must be before any imports from company-discovery
+vi.mock('../src/claude/client.js')
+
 import { validateAndExtractCompanies, isAggregator, isValidUrl } from '../src/utils/company-discovery'
 import * as claudeClient from '../src/claude/client.js'
-
-// Mock the claude client module with proper factory
-vi.mock('../src/claude/client.js')
 
 describe('Company Discovery Utility', () => {
   beforeEach(() => {
