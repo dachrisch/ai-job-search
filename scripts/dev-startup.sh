@@ -260,7 +260,26 @@ create_test_user() {
     local TEST_EMAIL="test@example.com"
     local TEST_PASSWORD="TestPassword123!"
 
-    # Create user with fresh password hash using Node.js inline
+    # Read OAuth token from Claude Code credentials
+    local CLAUDE_OAUTH_TOKEN
+    CLAUDE_OAUTH_TOKEN=$(python3 -c "
+import json, sys
+try:
+    with open('$HOME/.claude/.credentials.json') as f:
+        d = json.load(f)
+    print(d['claudeAiOauth']['accessToken'])
+except Exception as e:
+    pass
+" 2>/dev/null || true)
+
+    if [ -z "$CLAUDE_OAUTH_TOKEN" ]; then
+        log_warn "No Claude OAuth token found in ~/.claude/.credentials.json"
+        log_warn "Claude API calls will fail until a valid token is set in the app settings"
+    else
+        log_info "Found OAuth token from Claude Code credentials"
+    fi
+
+    # Create user with fresh password hash and OAuth token
     cd "$PROJECT_ROOT"
     node -e "
 const mongoose = require('mongoose');
@@ -275,13 +294,16 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema, 'users');
 
 mongoose.connect('mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search').then(async () => {
-  // Delete existing test user to ensure fresh password hash
   await User.deleteOne({ email: '$TEST_EMAIL' });
 
-  // Hash password and create user
   const passwordHash = await bcrypt.hash('$TEST_PASSWORD', 10);
-  const user = await User.create({ email: '$TEST_EMAIL', passwordHash });
+  const userData = { email: '$TEST_EMAIL', passwordHash };
 
+  // Attach OAuth token if available
+  const oauthToken = '$CLAUDE_OAUTH_TOKEN';
+  if (oauthToken) userData.claudeApiToken = oauthToken;
+
+  await User.create(userData);
   process.exit(0);
 }).catch(err => {
   console.error('Error:', err.message);
@@ -290,7 +312,11 @@ mongoose.connect('mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search').then(async 
 " 2>/dev/null || true
     cd - >/dev/null
 
-    log_success "Test user account ready"
+    if [ -n "$CLAUDE_OAUTH_TOKEN" ]; then
+        log_success "Test user account ready (with OAuth token)"
+    else
+        log_success "Test user account ready (no Claude token)"
+    fi
     TEST_USER_EMAIL="$TEST_EMAIL"
     TEST_USER_PASSWORD="$TEST_PASSWORD"
 }

@@ -43,12 +43,10 @@ export function verifyToken(token: string): { userId: string; email: string } {
 }
 
 export async function setClaudeToken(userId: string, token: string): Promise<void> {
-  // Validate the Claude API token before storing
+  // Validate the token before storing (supports both API keys and OAuth tokens)
   try {
-    const { Anthropic } = await import('@anthropic-ai/sdk')
-    const client = new Anthropic({ apiKey: token })
-
-    // Test the key with a simple API call
+    const { buildAnthropicClient } = await import('../claude/auth.js')
+    const client = buildAnthropicClient(token)
     await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 10,
@@ -57,11 +55,10 @@ export async function setClaudeToken(userId: string, token: string): Promise<voi
   } catch (err) {
     const error = err as any
     if (error.status === 401) {
-      throw new Error('Invalid Claude API key. Please check your key and try again.')
+      throw new Error('Invalid Claude token. Please check your API key or OAuth token and try again.')
     }
-    throw new Error(`Failed to validate Claude API key: ${error.message}`)
+    throw new Error(`Failed to validate Claude token: ${error.message}`)
   }
 
-  // Store the token only if validation succeeds
   await UserModel.findByIdAndUpdate(userId, { claudeApiToken: token })
 }

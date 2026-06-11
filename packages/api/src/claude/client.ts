@@ -1,5 +1,5 @@
-import { Anthropic } from '@anthropic-ai/sdk'
 import { UserModel } from '../db/models.js'
+import { buildAnthropicClient } from './auth.js'
 
 interface ConversationMessage {
   role: 'user' | 'assistant'
@@ -94,14 +94,11 @@ export async function callClaude(userId: string, message: string): Promise<strin
       throw new Error('No Claude API token')
     }
 
-    const client = new Anthropic({
-      apiKey: user.claudeApiToken,
-      timeout: 30000, // 30 second timeout
-    })
+    const client = buildAnthropicClient(user.claudeApiToken)
 
     const response = await Promise.race([
       client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         messages: [
           {
@@ -145,10 +142,7 @@ export async function callClaudeWithHistory(
       throw new Error('No Claude API token')
     }
 
-    const client = new Anthropic({
-      apiKey: user.claudeApiToken,
-      timeout: 30000, // 30 second timeout
-    })
+    const client = buildAnthropicClient(user.claudeApiToken)
 
     const messages = [
       ...conversationHistory,
@@ -160,7 +154,7 @@ export async function callClaudeWithHistory(
 
     const response = await Promise.race([
       client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         messages: messages,
       }),

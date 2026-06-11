@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { DiscoveredCompany } from '@job-search/shared'
-import { Anthropic } from '@anthropic-ai/sdk'
+import { buildAnthropicClient } from '../claude/auth.js'
 
 interface SearXNGResult {
   title: string
@@ -20,7 +20,7 @@ export class SearchSourceManager {
   private searxngUrl: string
   private searxngToken: string
   private blocklist: string[]
-  private anthropic: Anthropic
+  private anthropic: ReturnType<typeof buildAnthropicClient>
 
   constructor(claudeApiKey: string) {
     this.searxngUrl = process.env.SEARXNG_URL || 'https://search.lehel.xyz'
@@ -29,9 +29,7 @@ export class SearchSourceManager {
       .split(',')
       .filter(Boolean)
       .map(s => s.toLowerCase().trim())
-    this.anthropic = new Anthropic({
-      apiKey: claudeApiKey
-    })
+    this.anthropic = buildAnthropicClient(claudeApiKey)
   }
 
   async discoverCompanies(
