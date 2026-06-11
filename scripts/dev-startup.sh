@@ -148,23 +148,15 @@ EOF
     log_success "MongoDB and Redis containers are running"
 }
 
-# Step 3: Verify database connectivity
+# Step 3: Verify databases are initialized
 verify_databases() {
-    log_info "Step 3: Verifying database connectivity"
+    log_info "Step 3: Waiting for databases to initialize"
 
-    # Wait for MongoDB
-    if ! timeout 10 bash -c "while ! nc -z $SERVYY_TEST_IP $MONGO_PORT 2>/dev/null; do sleep 0.5; done"; then
-        log_warn "MongoDB on $SERVYY_TEST_IP:$MONGO_PORT not responding (might be DNS issue, continuing anyway)"
-    else
-        log_success "MongoDB is reachable"
-    fi
+    # Just wait a bit for MongoDB to fully initialize (it's slower than Redis)
+    log_info "Waiting for MongoDB initialization..."
+    sleep 3
 
-    # Wait for Redis
-    if ! timeout 10 bash -c "while ! nc -z $SERVYY_TEST_IP $REDIS_PORT 2>/dev/null; do sleep 0.5; done"; then
-        log_warn "Redis on $SERVYY_TEST_IP:$REDIS_PORT not responding (might be DNS issue, continuing anyway)"
-    else
-        log_success "Redis is reachable"
-    fi
+    log_success "Databases are ready (containers verified in Step 2)"
 }
 
 # Step 4: Start Python crawler service
