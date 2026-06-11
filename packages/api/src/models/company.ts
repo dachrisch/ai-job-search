@@ -2,10 +2,10 @@ import mongoose, { Schema, Document, Model } from 'mongoose'
 import type { Company } from '@job-search/shared'
 
 /**
- * CompanyDocument extends the Company type from shared types
- * with Mongoose-specific properties like _id and timestamps
+ * CompanyDocument extends Document and includes all Company properties
+ * Mongoose will use ObjectId for _id instead of string
  */
-export interface CompanyDocument extends Company, Document {
+export interface CompanyDocument extends Omit<Company, '_id'>, Document {
   _id: mongoose.Types.ObjectId
 }
 
