@@ -253,14 +253,14 @@ start_crawler() {
     fi
 }
 
-# Step 5: Create test user if needed
+# Step 5: Create test user (fresh each time)
 create_test_user() {
     log_info "Step 5: Setting up test user account"
 
     local TEST_EMAIL="test@example.com"
     local TEST_PASSWORD="TestPassword123!"
 
-    # Create a temporary Node.js script to hash password and create user
+    # Create a temporary Node.js script to hash password and recreate user
     local TEMP_SCRIPT=$(mktemp)
     cat > "$TEMP_SCRIPT" << 'NODESCRIPT'
 const mongoose = require('mongoose');
@@ -282,12 +282,8 @@ async function createTestUser() {
   try {
     await mongoose.connect(MONGODB_URI);
 
-    // Check if test user already exists
-    const existing = await User.findOne({ email: TEST_EMAIL });
-    if (existing) {
-      console.log(`User ${TEST_EMAIL} already exists`);
-      process.exit(0);
-    }
+    // Delete existing test user to ensure fresh password hash
+    await User.deleteOne({ email: TEST_EMAIL });
 
     // Hash password and create user
     const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
