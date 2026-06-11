@@ -50,7 +50,7 @@ export async function setClaudeToken(userId: string, token: string): Promise<voi
 
     // Test the key with a simple API call
     await client.messages.create({
-      model: 'claude-opus-4-1',
+      model: 'claude-sonnet-4-6',
       max_tokens: 10,
       messages: [{ role: 'user', content: 'ping' }]
     })
