@@ -5,12 +5,14 @@ set -euo pipefail
 # Starts all required services: servyy-test container, MongoDB, Redis, Crawler, API, Frontend
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVYY_TEST_IP="10.185.182.250"
 MONGO_PORT=27017
 REDIS_PORT=6379
 CRAWLER_PORT=5000
 API_PORT=3000
 FRONTEND_PORT=5173
+
+# Dynamically get servyy-test.lxd IP (will be set in setup_servyy_test_container)
+SERVYY_TEST_IP=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -82,7 +84,7 @@ kill_port() {
     fi
 }
 
-# Step 1: Ensure servyy-test.lxd container is running
+# Step 1: Ensure servyy-test.lxd container is running and get its IP
 setup_servyy_test_container() {
     log_info "Step 1: Ensuring servyy-test.lxd container is available"
 
@@ -95,7 +97,17 @@ setup_servyy_test_container() {
             return 1
         fi
     fi
-    log_success "servyy-test.lxd is running"
+
+    # Discover servyy-test.lxd IP dynamically
+    log_info "Discovering servyy-test.lxd IP address..."
+    SERVYY_TEST_IP=$(getent hosts servyy-test.lxd | awk '{print $1}' | grep -E '^[0-9]+\.[0-9]+' || echo "")
+
+    if [ -z "$SERVYY_TEST_IP" ]; then
+        log_error "Could not resolve servyy-test.lxd IP address"
+        return 1
+    fi
+
+    log_success "servyy-test.lxd is running at $SERVYY_TEST_IP"
 }
 
 # Step 2: Setup MongoDB and Redis containers on servyy-test.lxd
@@ -150,16 +162,14 @@ EOF
 
 # Step 3: Verify database connectivity
 verify_databases() {
-    log_info "Step 3: Verifying database connectivity from servyy-test.lxd"
+    log_info "Step 3: Verifying database connectivity"
 
-    # Test MongoDB connectivity from within the container (where we control the environment)
-    log_info "Checking MongoDB via container..."
+    # Test MongoDB connectivity from within the container
+    log_info "Checking MongoDB from container..."
     if ssh servyy-test.lxd "docker exec job-search-mongo mongosh --eval 'db.adminCommand(\"ping\")' >/dev/null 2>&1"; then
-        log_success "MongoDB is responding to commands"
+        log_success "MongoDB is responding (container: OK)"
     else
         log_error "MongoDB on servyy-test.lxd is NOT responding"
-        log_error "The API and frontend won't work without database connectivity."
-        log_error ""
         log_error "Troubleshooting:"
         log_error "  1. Check container status: ssh servyy-test.lxd 'docker ps | grep job-search-mongo'"
         log_error "  2. Check MongoDB logs: ssh servyy-test.lxd 'docker logs job-search-mongo | tail -20'"
@@ -168,16 +178,40 @@ verify_databases() {
     fi
 
     # Test Redis connectivity from within the container
-    log_info "Checking Redis via container..."
+    log_info "Checking Redis from container..."
     if ssh servyy-test.lxd "docker exec job-search-redis redis-cli ping 2>/dev/null | grep -q PONG"; then
-        log_success "Redis is responding to commands"
+        log_success "Redis is responding (container: OK)"
     else
         log_error "Redis on servyy-test.lxd is NOT responding"
-        log_error ""
         log_error "Troubleshooting:"
         log_error "  1. Check container status: ssh servyy-test.lxd 'docker ps | grep job-search-redis'"
         log_error "  2. Check Redis logs: ssh servyy-test.lxd 'docker logs job-search-redis | tail -20'"
         log_error "  3. Restart Redis: ssh servyy-test.lxd 'docker restart job-search-redis'"
+        return 1
+    fi
+
+    # Test MongoDB connectivity from localhost (critical - API needs this)
+    log_info "Checking MongoDB reachability from localhost ($SERVYY_TEST_IP:$MONGO_PORT)..."
+    if timeout 10 bash -c "while ! nc -z $SERVYY_TEST_IP $MONGO_PORT 2>/dev/null; do sleep 0.5; done"; then
+        log_success "MongoDB is reachable from localhost"
+    else
+        log_error "MongoDB on $SERVYY_TEST_IP:$MONGO_PORT is NOT reachable from localhost"
+        log_error "The API running on localhost won't be able to connect to the database."
+        log_error ""
+        log_error "Troubleshooting:"
+        log_error "  1. Verify IP is correct: ping servyy-test.lxd"
+        log_error "  2. Test connectivity: nc -zv $SERVYY_TEST_IP $MONGO_PORT"
+        log_error "  3. Check network routing: ip route | grep $SERVYY_TEST_IP"
+        log_error "  4. Verify SSH access: ssh servyy-test.lxd 'docker ps'"
+        return 1
+    fi
+
+    # Test Redis connectivity from localhost
+    log_info "Checking Redis reachability from localhost ($SERVYY_TEST_IP:$REDIS_PORT)..."
+    if timeout 10 bash -c "while ! nc -z $SERVYY_TEST_IP $REDIS_PORT 2>/dev/null; do sleep 0.5; done"; then
+        log_success "Redis is reachable from localhost"
+    else
+        log_error "Redis on $SERVYY_TEST_IP:$REDIS_PORT is NOT reachable from localhost"
         return 1
     fi
 }
