@@ -8,6 +8,7 @@ import { PageAnalyzer } from '../job-sources/page-analyzer.js'
 import { SearchResult, AnalyzedPage } from '../job-sources/interfaces.js'
 import { validateAndExtractCompanies } from '../utils/company-discovery.js'
 import { calculateKeywordMatch, passesKeywordThreshold } from '../utils/job-matcher.js'
+import { SearchSourceManager } from '../search-sources/searxng-source.js'
 
 const jobSourceManager = new JobSourceManager()
 
@@ -23,29 +24,96 @@ export const eventHandlers = {
         return
       }
 
-      const searchService = new SearchService()
-      // Search for careers pages with appended query
-      const searchResults = await searchService.search(`${data.query} careers`)
+      // Use SearchSourceManager to discover companies via SearXNG
+      console.log(`   🔍 Discovering companies via SearchSourceManager...`)
+      const searchSourceManager = new SearchSourceManager()
+      const companies = await searchSourceManager.discoverCompanies(data.searchId, data.query)
 
-      console.log(`   🔍 SearXNG found ${searchResults.length} pages`)
+      console.log(`   ✅ Found ${companies.length} companies`)
 
-      if (searchResults.length === 0) {
-        console.log(`   📋 No career pages found, search complete`)
+      if (companies.length === 0) {
+        console.log(`   📋 No companies discovered, search failed`)
         await addEvent('search_failed', {
           searchId: data.searchId,
-          error: 'No results found for career pages search'
+          error: 'No company career pages found'
         })
         return
       }
 
-      await addEvent('careers_pages_found', {
+      // Emit companies_discovered event to proceed with storing
+      await addEvent('companies_discovered', {
         searchId: data.searchId,
-        query: data.query,
-        searchResults
+        companies: companies.map(c => ({
+          url: c.url,
+          name: c.name,
+          discoveredFrom: 'searxng',
+          confidence: c.confidence
+        })),
+        userQuery: data.query
       })
     } catch (error) {
       console.error('Error in search_started handler:', error)
-      await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+      await addEvent('search_failed', {
+        searchId: data.searchId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  },
+
+  companies_discovered: async (
+    data: { searchId: string; companies: Array<{ url: string; name: string; discoveredFrom: string; confidence: 'high' | 'medium' | 'low' }>; userQuery: string },
+    sseManager: SSEManager
+  ) => {
+    try {
+      console.log(`\n🤖 AGENT LOG - Companies Discovered`)
+      console.log(`   Storing ${data.companies.length} discovered companies...`)
+
+      const session = await SearchSessionModel.findById(data.searchId)
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      // Store each company in MongoDB
+      const createdCompanies = []
+      for (const company of data.companies) {
+        const doc = await CompanyModel.create({
+          url: company.url,
+          name: company.name,
+          discoveredFrom: company.discoveredFrom,
+          searchQuery: data.userQuery,
+          confidence: company.confidence,
+          status: 'pending_crawl',
+          crawlAttempts: 0
+        })
+        createdCompanies.push(doc)
+      }
+
+      console.log(`   📝 Created ${createdCompanies.length} company records`)
+
+      // Update SearchSession with discovery stats
+      session.companiesDiscovered = data.companies.length
+      session.companiesRemaining = data.companies.length
+      await session.save()
+
+      console.log(`   ✅ SearchSession updated with discovery stats`)
+
+      // Queue first batch for crawling (10 companies max)
+      const batchSize = Math.min(10, createdCompanies.length)
+      const firstBatch = createdCompanies.slice(0, batchSize)
+
+      console.log(`   ✅ Queuing first batch of ${batchSize} companies for crawl`)
+
+      await addEvent('companies_queued_for_crawl', {
+        searchId: data.searchId,
+        companyIds: firstBatch.map(c => c._id.toString())
+      })
+    } catch (error) {
+      console.error('Error in companies_discovered handler:', error)
+      await addEvent('search_failed', {
+        searchId: data.searchId,
+        error: error instanceof Error ? error.message : 'Failed to process discovered companies'
+      })
     }
   },
 

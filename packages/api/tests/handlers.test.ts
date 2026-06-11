@@ -7,6 +7,7 @@ import * as companyDiscovery from '../src/utils/company-discovery'
 import * as jobMatcher from '../src/utils/job-matcher'
 import { SearchService } from '../src/job-sources/search-service'
 import { callClaude } from '../src/claude/client'
+import { SearchSourceManager } from '../src/search-sources/searxng-source'
 
 // Mock dependencies
 vi.mock('../src/db/models')
@@ -15,6 +16,7 @@ vi.mock('../src/job-sources/search-service')
 vi.mock('../src/claude/client')
 vi.mock('../src/utils/company-discovery')
 vi.mock('../src/utils/job-matcher')
+vi.mock('../src/search-sources/searxng-source')
 
 describe('Event Handlers', () => {
   let mockSession: any
@@ -62,15 +64,19 @@ describe('Event Handlers', () => {
   })
 
   describe('search_started handler', () => {
-    it('should search for careers pages with appended query', async () => {
-      const searchResults = [
-        { title: 'Google Careers', url: 'https://careers.google.com' },
-        { title: 'Microsoft Careers', url: 'https://careers.microsoft.com' },
+    it('should discover companies using SearchSourceManager', async () => {
+      const discoveredCompanies = [
+        { url: 'https://careers.google.com', name: 'Google', title: 'Google Careers', snippet: 'Join Google', confidence: 'high' as const },
+        { url: 'https://careers.microsoft.com', name: 'Microsoft', title: 'Microsoft Careers', snippet: 'Work at Microsoft', confidence: 'high' as const },
       ]
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(SearchService).mockImplementation(() => mockSearchService)
-      mockSearchService.search.mockResolvedValue(searchResults)
+      vi.mocked(SearchSourceManager).mockImplementation(
+        () =>
+          ({
+            discoverCompanies: vi.fn().mockResolvedValue(discoveredCompanies),
+          }) as any
+      )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       await eventHandlers.search_started(
@@ -78,18 +84,27 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      expect(mockSearchService.search).toHaveBeenCalledWith('software engineer careers')
-      expect(addEvent).toHaveBeenCalledWith('careers_pages_found', {
+      expect(addEvent).toHaveBeenCalledWith('companies_discovered', {
         searchId: 'session-123',
-        query: 'software engineer',
-        searchResults,
+        companies: expect.arrayContaining([
+          expect.objectContaining({
+            url: 'https://careers.google.com',
+            name: 'Google',
+            discoveredFrom: 'searxng',
+          }),
+        ]),
+        userQuery: 'software engineer',
       })
     })
 
-    it('should emit search_failed when no results found', async () => {
+    it('should emit search_failed when no companies discovered', async () => {
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(SearchService).mockImplementation(() => mockSearchService)
-      mockSearchService.search.mockResolvedValue([])
+      vi.mocked(SearchSourceManager).mockImplementation(
+        () =>
+          ({
+            discoverCompanies: vi.fn().mockResolvedValue([]),
+          }) as any
+      )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       await eventHandlers.search_started(
@@ -99,7 +114,7 @@ describe('Event Handlers', () => {
 
       expect(addEvent).toHaveBeenCalledWith('search_failed', {
         searchId: 'session-123',
-        error: expect.stringContaining('No results'),
+        error: expect.stringContaining('No company career pages'),
       })
     })
 
@@ -114,10 +129,14 @@ describe('Event Handlers', () => {
       expect(addEvent).not.toHaveBeenCalled()
     })
 
-    it('should emit search_failed on error', async () => {
+    it('should emit search_failed on discovery error', async () => {
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(SearchService).mockImplementation(() => mockSearchService)
-      mockSearchService.search.mockRejectedValue(new Error('Search failed'))
+      vi.mocked(SearchSourceManager).mockImplementation(
+        () =>
+          ({
+            discoverCompanies: vi.fn().mockRejectedValue(new Error('Discovery failed')),
+          }) as any
+      )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       await eventHandlers.search_started(
@@ -683,6 +702,184 @@ describe('Event Handlers', () => {
         'session-123',
         expect.objectContaining({
           type: 'results_updated',
+        })
+      )
+    })
+  })
+
+  describe('companies_discovered handler', () => {
+    it('should create Company documents and queue first batch', async () => {
+      const companies = [
+        { url: 'https://google.com/careers', name: 'Google', discoveredFrom: 'searxng', confidence: 'high' as const },
+        { url: 'https://apple.com/jobs', name: 'Apple', discoveredFrom: 'searxng', confidence: 'high' as const },
+        { url: 'https://microsoft.com/careers', name: 'Microsoft', discoveredFrom: 'searxng', confidence: 'medium' as const },
+      ]
+
+      const mockCompanyDocs = [
+        { _id: 'company-1' },
+        { _id: 'company-2' },
+        { _id: 'company-3' },
+      ]
+
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(CompanyModel.create)
+        .mockResolvedValueOnce(mockCompanyDocs[0] as any)
+        .mockResolvedValueOnce(mockCompanyDocs[1] as any)
+        .mockResolvedValueOnce(mockCompanyDocs[2] as any)
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.companies_discovered(
+        {
+          searchId: 'session-123',
+          companies,
+          userQuery: 'software engineer',
+        },
+        sseManager
+      )
+
+      // Verify companies were created
+      expect(CompanyModel.create).toHaveBeenCalledTimes(3)
+      expect(CompanyModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://google.com/careers',
+          name: 'Google',
+          status: 'pending_crawl',
+          discoveredFrom: 'searxng',
+          confidence: 'high',
+          searchQuery: 'software engineer',
+        })
+      )
+
+      // Verify session was updated with discovery stats
+      expect(mockSession.companiesDiscovered).toBe(3)
+      expect(mockSession.companiesRemaining).toBe(3)
+      expect(mockSession.save).toHaveBeenCalled()
+
+      // Verify first batch queued
+      expect(addEvent).toHaveBeenCalledWith('companies_queued_for_crawl', {
+        searchId: 'session-123',
+        companyIds: ['company-1', 'company-2', 'company-3'],
+      })
+    })
+
+    it('should limit first batch to 10 companies', async () => {
+      const companies = Array.from({ length: 20 }, (_, i) => ({
+        url: `https://company${i + 1}.com/careers`,
+        name: `Company${i + 1}`,
+        discoveredFrom: 'searxng',
+        confidence: 'high' as const,
+      }))
+
+      const mockCompanyDocs = Array.from({ length: 20 }, (_, i) => ({
+        _id: `company-${i + 1}`,
+      }))
+
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(CompanyModel.create)
+        .mockImplementation(() =>
+          Promise.resolve(mockCompanyDocs[Math.floor(Math.random() * 20)])
+        )
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.companies_discovered(
+        {
+          searchId: 'session-123',
+          companies,
+          userQuery: 'software engineer',
+        },
+        sseManager
+      )
+
+      // Get the companies_queued_for_crawl event call
+      const queueCall = vi.mocked(addEvent).mock.calls.find(
+        (call) => call[0] === 'companies_queued_for_crawl'
+      )
+      expect(queueCall).toBeDefined()
+      expect(queueCall![1].companyIds).toHaveLength(10)
+    })
+
+    it('should handle session not found gracefully', async () => {
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(null)
+
+      const companies = [
+        { url: 'https://google.com/careers', name: 'Google', discoveredFrom: 'searxng', confidence: 'high' as const },
+      ]
+
+      await eventHandlers.companies_discovered(
+        {
+          searchId: 'session-123',
+          companies,
+          userQuery: 'software engineer',
+        },
+        sseManager
+      )
+
+      expect(CompanyModel.create).not.toHaveBeenCalled()
+      expect(addEvent).not.toHaveBeenCalled()
+    })
+
+    it('should emit search_failed on error', async () => {
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(CompanyModel.create).mockRejectedValue(new Error('Database error'))
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      const companies = [
+        { url: 'https://google.com/careers', name: 'Google', discoveredFrom: 'searxng', confidence: 'high' as const },
+      ]
+
+      await eventHandlers.companies_discovered(
+        {
+          searchId: 'session-123',
+          companies,
+          userQuery: 'software engineer',
+        },
+        sseManager
+      )
+
+      expect(addEvent).toHaveBeenCalledWith('search_failed', {
+        searchId: 'session-123',
+        error: expect.any(String),
+      })
+    })
+
+    it('should preserve company confidence levels', async () => {
+      const companies = [
+        { url: 'https://google.com/careers', name: 'Google', discoveredFrom: 'searxng', confidence: 'high' as const },
+        { url: 'https://startup.com/jobs', name: 'Startup', discoveredFrom: 'searxng', confidence: 'low' as const },
+      ]
+
+      const mockCompanyDocs = [
+        { _id: 'company-1' },
+        { _id: 'company-2' },
+      ]
+
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(CompanyModel.create)
+        .mockResolvedValueOnce(mockCompanyDocs[0] as any)
+        .mockResolvedValueOnce(mockCompanyDocs[1] as any)
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.companies_discovered(
+        {
+          searchId: 'session-123',
+          companies,
+          userQuery: 'software engineer',
+        },
+        sseManager
+      )
+
+      // Verify confidence levels are preserved
+      expect(CompanyModel.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          confidence: 'high',
+        })
+      )
+
+      expect(CompanyModel.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          confidence: 'low',
         })
       )
     })
