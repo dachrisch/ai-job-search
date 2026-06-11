@@ -3,11 +3,11 @@ import { registerUser, loginUser, setClaudeToken, verifyToken } from './auth.ser
 
 export async function handleRegister(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password } = req.body
+    const { email, password, claudeApiToken } = req.body
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' })
     }
-    const result = await registerUser(email, password)
+    const result = await registerUser(email, password, claudeApiToken)
     res.status(201).json(result)
   } catch (error) {
     if (error instanceof Error && error.message === 'Email already exists') {

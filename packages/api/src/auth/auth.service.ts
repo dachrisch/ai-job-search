@@ -5,14 +5,14 @@ import { AuthResponse } from '@job-search/shared'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 
-export async function registerUser(email: string, password: string): Promise<AuthResponse> {
+export async function registerUser(email: string, password: string, claudeApiToken?: string): Promise<AuthResponse> {
   const existing = await UserModel.findOne({ email })
   if (existing) {
     throw new Error('Email already exists')
   }
 
   const passwordHash = await bcrypt.hash(password, 10)
-  const user = await UserModel.create({ email, passwordHash })
+  const user = await UserModel.create({ email, passwordHash, claudeApiToken })
 
   const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
   return { userId: user._id.toString(), token }
