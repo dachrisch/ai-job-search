@@ -13,17 +13,21 @@ See **[.superpowers/startup/startup.md](.superpowers/startup/startup.md)** for c
 
 ## Quick Reference: Common Commands
 
-### Development
+### Development - Startup (RECOMMENDED)
 
 ```bash
-# Start all services (API + Frontend with shared infrastructure)
-npm run start:dev
+# ✨ Idempotent startup script - handles EVERYTHING:
+#    - Ensures servyy-test.lxd container running
+#    - Sets up MongoDB & Redis containers
+#    - Starts Python crawler service (port 5000)
+#    - Starts API server (port 3000)
+#    - Starts Frontend dev server (port 5173)
+./scripts/dev-startup.sh
 
-# Start just the API server (uses external MongoDB/Redis on servyy-test.lxd)
-npm run start:api
-
-# Start just the frontend dev server
-npm run start:frontend
+# Alternatively, start services individually (requires manual setup):
+npm run start:dev          # Start API + Frontend only
+npm run start:api          # Start just API server
+npm run start:frontend     # Start just frontend dev server
 
 # Build all packages for production
 npm run build --workspaces
