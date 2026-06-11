@@ -22,7 +22,7 @@ export class SearchSourceManager {
   private blocklist: string[]
   private anthropic: Anthropic
 
-  constructor() {
+  constructor(claudeApiKey: string) {
     this.searxngUrl = process.env.SEARXNG_URL || 'https://search.lehel.xyz'
     this.searxngToken = process.env.SEARXNG_TOKEN || ''
     this.blocklist = (process.env.JOB_AGGREGATOR_BLOCKLIST || '')
@@ -30,7 +30,7 @@ export class SearchSourceManager {
       .filter(Boolean)
       .map(s => s.toLowerCase().trim())
     this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY || ''
+      apiKey: claudeApiKey
     })
   }
 
@@ -210,7 +210,5 @@ Return exactly this JSON format:
   }
 }
 
-// Create default instance only if not in test mode
-export const searchSourceManager = process.env.VITEST
-  ? null
-  : new SearchSourceManager()
+// Note: SearchSourceManager instances are created per request with user's Claude API key
+// Do not create a default singleton instance

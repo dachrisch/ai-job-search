@@ -1,4 +1,4 @@
-import { SearchSessionModel, JobModel, SiteModel, CompanyModel } from '../db/models.js'
+import { SearchSessionModel, JobModel, SiteModel, CompanyModel, UserModel } from '../db/models.js'
 import { addEvent } from './queue.js'
 import { callClaude } from '../claude/client.js'
 import { SSEManager } from '../utils/SSEManager.js'
@@ -24,9 +24,20 @@ export const eventHandlers = {
         return
       }
 
+      // Get user's Claude API token
+      const user = await UserModel.findById(data.userId)
+      if (!user || !user.claudeApiToken) {
+        console.error('User or Claude API token not found')
+        await addEvent('search_failed', {
+          searchId: data.searchId,
+          error: 'Claude API token not configured'
+        })
+        return
+      }
+
       // Use SearchSourceManager to discover companies via SearXNG
       console.log(`   🔍 Discovering companies via SearchSourceManager...`)
-      const searchSourceManager = new SearchSourceManager()
+      const searchSourceManager = new SearchSourceManager(user.claudeApiToken)
       const companies = await searchSourceManager.discoverCompanies(data.searchId, data.query)
 
       console.log(`   ✅ Found ${companies.length} companies`)
