@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspaces",
     "startup": "./scripts/dev-startup.sh",
+    "stop": "./scripts/dev-stop.sh",
     "start:api": "cd packages/api && MONGODB_URI=mongodb://10.185.182.250:27017/job_search REDIS_URL=redis://10.185.182.250:6379 npm run dev",
     "start:frontend": "cd packages/frontend && npm run dev",
     "start:dev": "npm-run-all --parallel start:api start:frontend"
