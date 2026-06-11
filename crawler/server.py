@@ -3,8 +3,8 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from cli import crawl_jobs
-from models import CrawlerRequest, SiteResult
+from cli import crawl_jobs, crawl_company_jobs
+from models import CrawlerRequest, CompanyCrawlRequest, CompanyCrawlResult, SiteResult
 from logger import get_logger, set_request_id
 from config import CRAWLER_PORT
 from resilience import CircuitBreaker, RateLimiter
@@ -136,6 +136,72 @@ def scrape():
     )
 
     return jsonify([site.model_dump(by_alias=True) for site in validated]), 200
+
+
+@app.route('/crawler/crawl-company', methods=['POST'])
+def crawl_company():
+    """
+    HTTP endpoint for crawling a single company career page.
+
+    Expected JSON payload:
+    {
+        "searchId": "uuid",
+        "companyId": "mongodb-id",
+        "url": "https://stripe.com/careers",
+        "companyName": "Stripe",
+        "query": "senior engineer"
+    }
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'No JSON data provided'}), 400
+
+    try:
+        req = CompanyCrawlRequest.model_validate(data)
+    except ValidationError as exc:
+        log.warning("Invalid company crawl request", extra={"errors": exc.errors()})
+        return jsonify({
+            'error': 'Request validation failed',
+            'detail': exc.errors(include_url=False),
+        }), 400
+
+    set_request_id(req.search_id)
+
+    log.info(
+        "Company crawl request received",
+        extra={
+            "search_id": req.search_id,
+            "company_id": req.company_id,
+            "company_name": req.company_name,
+            "url": req.url,
+        },
+    )
+
+    try:
+        result = crawl_company_jobs(
+            search_id=req.search_id,
+            company_id=req.company_id,
+            url=req.url,
+            company_name=req.company_name,
+            keywords=req.query,
+        )
+
+        log.info(
+            "Company crawl complete",
+            extra={
+                "search_id": req.search_id,
+                "company_id": req.company_id,
+                "jobs_found": len(result.get('jobs', [])),
+            },
+        )
+
+        validated = CompanyCrawlResult.model_validate(result)
+        return jsonify(validated.model_dump(by_alias=True)), 200
+
+    except Exception as exc:
+        log.error("Company crawl failed", extra={"error": str(exc)})
+        return jsonify({'error': str(exc)}), 500
 
 
 if __name__ == '__main__':

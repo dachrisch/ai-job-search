@@ -208,6 +208,59 @@ class SiteResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# CompanyCrawlRequest — payload for crawling a single company career page
+# ---------------------------------------------------------------------------
+
+class CompanyCrawlRequest(BaseModel):
+    """Request to crawl a specific company career page."""
+
+    model_config = _CAMEL_CONFIG
+
+    search_id: str = Field(
+        description="UUID correlation ID tying this crawl to a SearchSession"
+    )
+    company_id: str = Field(
+        description="MongoDB ObjectId of the Company being crawled"
+    )
+    url: str = Field(
+        description="Full URL of the company career page (https://...)"
+    )
+    company_name: str = Field(
+        description="Company name for logging/tracking"
+    )
+    query: str = Field(
+        description="Original user search query for context"
+    )
+
+    @field_validator("url")
+    @classmethod
+    def url_must_be_https(cls, v: str) -> str:
+        if not v.startswith("https://"):
+            raise ValueError("URL must start with https://")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# CompanyCrawlResult — result from crawling a single company career page
+# ---------------------------------------------------------------------------
+
+class CompanyCrawlResult(BaseModel):
+    """Result from crawling a single company career page."""
+
+    model_config = _CAMEL_CONFIG
+
+    search_id: str
+    company_id: str
+    jobs: list[JobData] = Field(default_factory=list)
+    discovered_companies: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Other companies mentioned on this company's page"
+    )
+    errors: list[dict[str, Any]] = Field(default_factory=list)
+    timestamp: str = Field(default_factory=SiteResult.utc_now_iso)
+
+
+# ---------------------------------------------------------------------------
 # CrawlerResponse — the complete response body returned to the Node.js API
 # ---------------------------------------------------------------------------
 

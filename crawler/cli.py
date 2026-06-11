@@ -368,6 +368,113 @@ def crawl_jobs(
     return results
 
 
+def crawl_company_jobs(
+    search_id: str,
+    company_id: str,
+    url: str,
+    company_name: str,
+    keywords: str,
+) -> dict:
+    """
+    Crawl a single company career page.
+
+    Routes to GenericCareerPageSpider which is designed for company sites.
+    Returns: { searchId, companyId, jobs: [...], discoveredCompanies: [...], errors: [...] }
+    """
+    global collected_jobs
+    collected_jobs = []
+
+    log.info(
+        "Crawling company",
+        extra={
+            "search_id": search_id,
+            "company_id": company_id,
+            "company_name": company_name,
+            "url": url,
+        },
+    )
+
+    try:
+        settings = get_project_settings()
+        settings.set('ITEM_PIPELINES', {'cli.JobCollectorPipeline': 300})
+        settings.set('ROBOTSTXT_OBEY', True)
+        settings.set('CONCURRENT_REQUESTS', 1)  # Single company, no concurrency
+        settings.set('DOWNLOAD_DELAY', 1)
+        settings.set('USER_AGENT', _cfg.DEFAULT_USER_AGENT)
+        settings.set('LOG_LEVEL', 'INFO')
+        settings.set('DOWNLOAD_TIMEOUT', 30)
+
+        process = CrawlerProcess(settings)
+
+        # Route to GenericCareerPageSpider
+        from job_crawler.spiders.generic_career_spider import GenericCareerPageSpider
+
+        log.info(
+            "Registering generic_career_spider",
+            extra={"url": url, "company": company_name},
+        )
+
+        process.crawl(
+            GenericCareerPageSpider,
+            urls=[url],
+            keywords=keywords,
+            company_name=company_name,
+        )
+
+        process.start()
+
+        # Validate and convert items
+        validated_jobs = []
+        for raw_item in collected_jobs:
+            job = scrapy_item_to_job_data(raw_item)
+            if job is not None:
+                validated_jobs.append(job)
+
+        log.info(
+            "Company crawl succeeded",
+            extra={
+                "search_id": search_id,
+                "company_id": company_id,
+                "jobs_extracted": len(validated_jobs),
+            },
+        )
+
+        return {
+            "search_id": search_id,
+            "company_id": company_id,
+            "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
+            "discovered_companies": [],  # Future: extract sister companies
+            "errors": [],
+            "timestamp": SiteResult.utc_now_iso(),
+        }
+
+    except Exception as exc:
+        error_msg = str(exc)
+        log.error(
+            "Company crawl failed",
+            extra={
+                "search_id": search_id,
+                "company_id": company_id,
+                "error": error_msg,
+            },
+        )
+
+        return {
+            "search_id": search_id,
+            "company_id": company_id,
+            "jobs": [],
+            "discovered_companies": [],
+            "errors": [
+                {
+                    "message": error_msg,
+                    "site": url,
+                    "error_type": ErrorType.UNKNOWN,
+                }
+            ],
+            "timestamp": SiteResult.utc_now_iso(),
+        }
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Crawl job listings from job board domains')
     parser.add_argument('sites', nargs='+', help='Domain names to crawl (e.g. linkedin.com)')
