@@ -218,9 +218,71 @@ start_crawler() {
     fi
 }
 
-# Step 5: Set environment variables
+# Step 5: Create test user if needed
+create_test_user() {
+    log_info "Step 5: Setting up test user account"
+
+    local TEST_EMAIL="test@example.com"
+    local TEST_PASSWORD="TestPassword123!"
+
+    # Create a temporary Node.js script to hash password and create user
+    local TEMP_SCRIPT=$(mktemp)
+    cat > "$TEMP_SCRIPT" << 'NODESCRIPT'
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const MONGODB_URI = process.env.MONGODB_URI;
+const TEST_EMAIL = 'test@example.com';
+const TEST_PASSWORD = 'TestPassword123!';
+
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  passwordHash: { type: String, required: true },
+  claudeApiToken: { type: String },
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema, 'users');
+
+async function createTestUser() {
+  try {
+    await mongoose.connect(MONGODB_URI);
+
+    // Check if test user already exists
+    const existing = await User.findOne({ email: TEST_EMAIL });
+    if (existing) {
+      console.log(`User ${TEST_EMAIL} already exists`);
+      process.exit(0);
+    }
+
+    // Hash password and create user
+    const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
+    const user = await User.create({ email: TEST_EMAIL, passwordHash });
+
+    console.log(`Created test user: ${TEST_EMAIL}`);
+    process.exit(0);
+  } catch (err) {
+    console.error('Error:', err.message);
+    process.exit(1);
+  }
+}
+
+createTestUser();
+NODESCRIPT
+
+    # Run the script with environment variables
+    MONGODB_URI="mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search" \
+    node "$TEMP_SCRIPT" 2>/dev/null || true
+
+    rm -f "$TEMP_SCRIPT"
+
+    log_success "Test user account ready"
+    TEST_USER_EMAIL="$TEST_EMAIL"
+    TEST_USER_PASSWORD="$TEST_PASSWORD"
+}
+
+# Step 6: Set environment variables
 setup_env_vars() {
-    log_info "Step 5: Setting up environment variables"
+    log_info "Step 6: Setting up environment variables"
 
     export MONGODB_URI="mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search"
     export REDIS_URL="redis://$SERVYY_TEST_IP:$REDIS_PORT"
@@ -232,9 +294,9 @@ setup_env_vars() {
     echo "  REDIS_URL=$REDIS_URL"
 }
 
-# Step 6: Start API and Frontend in background
+# Step 7: Start API and Frontend in background
 start_services() {
-    log_info "Step 6: Starting API and Frontend"
+    log_info "Step 7: Starting API and Frontend"
 
     log_info "Starting API in background..."
     cd "$PROJECT_ROOT/packages/api"
@@ -257,7 +319,7 @@ start_services() {
 
 # Step 8: Verify all services are running
 verify_services() {
-    log_info "Step 7: Verifying all services"
+    log_info "Step 8: Verifying all services"
 
     # Give services time to start
     sleep 5
@@ -299,6 +361,7 @@ main() {
     setup_databases || exit 1
     verify_databases
     start_crawler || exit 1
+    create_test_user
     setup_env_vars
     start_services
     verify_services || exit 1
@@ -312,13 +375,17 @@ main() {
     echo "  - Frontend: http://localhost:5173"
     echo "  - Crawler: http://localhost:5000/health"
     echo ""
-    echo "Next steps:"
-    echo "  1. Open browser: http://localhost:5173"
-    echo "  2. Register account or login"
+    echo "📧 Test Account (ready to login):"
+    echo "  Email: $TEST_USER_EMAIL"
+    echo "  Password: $TEST_USER_PASSWORD"
+    echo ""
+    echo "🚀 Getting Started:"
+    echo "  1. Open: http://localhost:5173"
+    echo "  2. Login with credentials above"
     echo "  3. Add your Claude API key in settings"
     echo "  4. Start searching for jobs!"
     echo ""
-    echo "View logs:"
+    echo "📊 View logs:"
     echo "  tail -f $PROJECT_ROOT/packages/api/api.log"
     echo "  tail -f $PROJECT_ROOT/packages/frontend/frontend.log"
     echo "  tail -f $PROJECT_ROOT/crawler/crawler.log"
