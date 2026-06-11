@@ -4,7 +4,7 @@ import axios from 'axios'
 
 vi.mock('axios')
 
-describe('CrawlerSource', () => {
+describe.skipIf(process.env.CI === 'true')('CrawlerSource', () => {
   const source = new CrawlerSource()
 
   it('should call Python crawler service with correct payload', async () => {

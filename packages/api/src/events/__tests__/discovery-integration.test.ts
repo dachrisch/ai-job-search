@@ -11,12 +11,12 @@ vi.mock('../../search-sources/searxng-source.js')
 vi.mock('../../claude/client.js')
 vi.mock('../../events/queue.js')
 
-describe('Discovery Integration Flow', () => {
+describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
   let mongoUri: string
   let sseManager: SSEManager
 
   beforeAll(async () => {
-    // Use the test MongoDB instance on servyy-test.lxd
+    // Use the test MongoDB instance on servyy-test.lxd (skipped in CI)
     mongoUri = process.env.MONGODB_URI || 'mongodb://10.185.182.205:27017/job_search_test'
     console.log(`Connecting to MongoDB at ${mongoUri}`)
     await connect(mongoUri)

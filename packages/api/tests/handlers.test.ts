@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { eventHandlers } from '../src/events/handlers'
-import { SearchSessionModel, JobModel, CompanyModel } from '../src/db/models'
+import { SearchSessionModel, JobModel, CompanyModel, UserModel } from '../src/db/models'
 import { addEvent } from '../src/events/queue'
 import { SSEManager } from '../src/utils/SSEManager'
 import * as companyDiscovery from '../src/utils/company-discovery'
@@ -17,6 +17,13 @@ vi.mock('../src/claude/client')
 vi.mock('../src/utils/company-discovery')
 vi.mock('../src/utils/job-matcher')
 vi.mock('../src/search-sources/searxng-source')
+
+// Mock user for token retrieval
+const mockUser = {
+  _id: 'user-123',
+  email: 'test@example.com',
+  claudeApiToken: 'test-token-123'
+}
 
 describe('Event Handlers', () => {
   let mockSession: any
@@ -57,6 +64,10 @@ describe('Event Handlers', () => {
     mockSearchService = {
       search: vi.fn(),
     }
+
+    // Mock UserModel.findById to return user with API token
+    vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+    vi.mocked(UserModel as any).findById = vi.fn().mockResolvedValue(mockUser)
   })
 
   afterEach(() => {

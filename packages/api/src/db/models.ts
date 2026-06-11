@@ -98,11 +98,21 @@ const searchSessionSchema = new Schema<SearchSession>(
   { timestamps: { createdAt: true, updatedAt: false } }
 )
 
-export const UserModel: Model<User> = mongoose.model('User', userSchema)
-export const JobModel: Model<Job> = mongoose.model('Job', jobSchema)
-export const SiteModel: Model<Site> = mongoose.model('Site', siteSchema)
-export const CompanyModel: Model<Company> = mongoose.model('Company', companySchema)
-export const SearchSessionModel: Model<SearchSession> = mongoose.model(
+// Helper to get or create models, avoiding OverwriteModelError in tests
+function getModel<T>(name: string, schema: Schema): Model<T> {
+  try {
+    return mongoose.model(name)
+  } catch (error) {
+    // Model doesn't exist yet, create it
+    return mongoose.model<T>(name, schema)
+  }
+}
+
+export const UserModel: Model<User> = getModel<User>('User', userSchema)
+export const JobModel: Model<Job> = getModel<Job>('Job', jobSchema)
+export const SiteModel: Model<Site> = getModel<Site>('Site', siteSchema)
+export const CompanyModel: Model<Company> = getModel<Company>('Company', companySchema)
+export const SearchSessionModel: Model<SearchSession> = getModel<SearchSession>(
   'SearchSession',
   searchSessionSchema
 )
