@@ -100,11 +100,11 @@ setup_servyy_test_container() {
 
     # Discover servyy-test.lxd IPv4 address dynamically
     log_info "Discovering servyy-test.lxd IPv4 address..."
-    SERVYY_TEST_IP=$(ping -4 -c 1 servyy-test.lxd 2>/dev/null | grep "PING" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    SERVYY_TEST_IP=$(host servyy-test.lxd 2>/dev/null | grep "has address" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 
     if [ -z "$SERVYY_TEST_IP" ]; then
-        log_error "Could not resolve servyy-test.lxd IPv4 address (tried ping)"
-        log_error "Make sure servyy-test.lxd is reachable: ping servyy-test.lxd"
+        log_error "Could not resolve servyy-test.lxd IPv4 address"
+        log_error "Make sure servyy-test.lxd is reachable: host servyy-test.lxd"
         return 1
     fi
 
