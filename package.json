@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspaces",
-    "start:api": "cd packages/api && MONGODB_URI=mongodb://10.185.182.205:27017/job_search REDIS_URL=redis://10.185.182.205:6379 USE_MEMORY_DB=false npm run dev",
+    "startup": "./scripts/dev-startup.sh",
+    "start:api": "cd packages/api && MONGODB_URI=mongodb://10.185.182.250:27017/job_search REDIS_URL=redis://10.185.182.250:6379 npm run dev",
     "start:frontend": "cd packages/frontend && npm run dev",
     "start:dev": "npm-run-all --parallel start:api start:frontend"
   },
