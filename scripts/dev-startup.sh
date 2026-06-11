@@ -260,15 +260,11 @@ create_test_user() {
     local TEST_EMAIL="test@example.com"
     local TEST_PASSWORD="TestPassword123!"
 
-    # Create a temporary Node.js script to hash password and recreate user
-    local TEMP_SCRIPT=$(mktemp)
-    cat > "$TEMP_SCRIPT" << 'NODESCRIPT'
+    # Create user with fresh password hash using Node.js inline
+    cd "$PROJECT_ROOT"
+    node -e "
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-
-const MONGODB_URI = process.env.MONGODB_URI;
-const TEST_EMAIL = 'test@example.com';
-const TEST_PASSWORD = 'TestPassword123!';
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
@@ -278,35 +274,21 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema, 'users');
 
-async function createTestUser() {
-  try {
-    await mongoose.connect(MONGODB_URI);
+mongoose.connect('mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search').then(async () => {
+  // Delete existing test user to ensure fresh password hash
+  await User.deleteOne({ email: '$TEST_EMAIL' });
 
-    // Delete existing test user to ensure fresh password hash
-    await User.deleteOne({ email: TEST_EMAIL });
+  // Hash password and create user
+  const passwordHash = await bcrypt.hash('$TEST_PASSWORD', 10);
+  const user = await User.create({ email: '$TEST_EMAIL', passwordHash });
 
-    // Hash password and create user
-    const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
-    const user = await User.create({ email: TEST_EMAIL, passwordHash });
-
-    console.log(`Created test user: ${TEST_EMAIL}`);
-    process.exit(0);
-  } catch (err) {
-    console.error('Error:', err.message);
-    process.exit(1);
-  }
-}
-
-createTestUser();
-NODESCRIPT
-
-    # Run the script with environment variables from project root (where node_modules exists)
-    cd "$PROJECT_ROOT"
-    MONGODB_URI="mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search" \
-    node "$TEMP_SCRIPT" 2>/dev/null || true
+  process.exit(0);
+}).catch(err => {
+  console.error('Error:', err.message);
+  process.exit(1);
+});
+" 2>/dev/null || true
     cd - >/dev/null
-
-    rm -f "$TEMP_SCRIPT"
 
     log_success "Test user account ready"
     TEST_USER_EMAIL="$TEST_EMAIL"
