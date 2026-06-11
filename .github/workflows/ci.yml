@@ -64,6 +64,8 @@ jobs:
       - name: Build API TypeScript
         run: npm run build
         working-directory: packages/api
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Build Frontend
         run: npm run build
