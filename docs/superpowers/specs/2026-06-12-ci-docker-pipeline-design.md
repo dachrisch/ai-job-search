@@ -83,23 +83,24 @@ Tag workflow does not re-run the test suite — tests must pass on the branch be
 **Inputs:**
 - `artifact_name` (string, required)
 - `image_name` (string, required)
+- `env_vars` (string, optional, default: `""`) — space-separated `-e KEY=VALUE` pairs passed to `docker run`
 
-**Job services:** MongoDB 8.3 + Redis 7-alpine (covers API; harmless overhead for frontend/crawler)
+**Job services:** MongoDB 8.3 + Redis 7-alpine (both always started; harmless overhead for frontend/crawler)
 
 **Steps:**
 1. `actions/download-artifact`
 2. `docker load --input /tmp/<image_name>.tar`
-3. `docker run --rm --detach --add-host=host.docker.internal:host-gateway` with required env vars
+3. `docker run --rm --detach --add-host=host.docker.internal:host-gateway ${{ inputs.env_vars }} <image>`
 4. Poll `docker inspect --format='{{.State.Health.Status}}'` — 10 retries × 6s
 5. Fail with `docker logs` output if not healthy; `docker stop` on success
 
-**Env vars passed to each container:**
+**Env vars passed per service from the caller:**
 
-| Service | Env vars |
+| Service | `env_vars` input value |
 |---|---|
-| api | `MONGODB_URI=mongodb://host.docker.internal:27017/test`, `REDIS_URL=redis://host.docker.internal:6379`, `CLAUDE_API_KEY=ci-dummy`, `JWT_SECRET=ci-test-secret` |
-| frontend | _(none required — nginx serves static files)_ |
-| crawler | _(none required for health check)_ |
+| api | `-e MONGODB_URI=mongodb://host.docker.internal:27017/test -e REDIS_URL=redis://host.docker.internal:6379 -e CLAUDE_API_KEY=ci-dummy -e JWT_SECRET=ci-test-secret` |
+| frontend | _(omitted — nginx serves static files)_ |
+| crawler | _(omitted — health check needs no external services)_ |
 
 ### `part_docker_push_artifact.yaml`
 
@@ -116,7 +117,8 @@ Tag workflow does not re-run the test suite — tests must pass on the branch be
 2. `docker load`
 3. `docker/login-action` → `docker.io` with `github.actor` / `DOCKER_TOKEN`
 4. `docker/metadata-action` with `type=semver` — generates `:v1.2.3`, `:v1.2`, `:v1`, `:latest`
-5. `docker/build-push-action` in push mode with generated tags (loads from tar via `--load`)
+5. `docker tag <local_image_name>:latest <registry_tag>` for each tag from metadata-action
+6. `docker push` each tag
 
 ---
 
@@ -195,7 +197,7 @@ Image names:
 
 | File | Change |
 |---|---|
-| `.github/workflows/ci.yml` | Add `tags: ['v*']` trigger; add 6 docker jobs (build+test per service) after existing jobs |
+| `.github/workflows/ci.yml` | Add `tags-ignore: ['v*']` to push trigger; add 6 docker jobs (build+test per service) after existing jobs |
 | `.github/workflows/ci_tag.yaml` | New: 9 jobs (build+test+push per service), tag trigger only |
 | `.github/workflows/part_docker_build.yaml` | New reusable workflow |
 | `.github/workflows/part_docker_test.yaml` | New reusable workflow |
