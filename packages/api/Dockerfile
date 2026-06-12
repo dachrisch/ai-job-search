@@ -11,6 +11,10 @@ RUN npm install
 COPY packages/api/ ./packages/api/
 COPY packages/shared/ ./packages/shared/
 
-RUN npm run build
+RUN npm run build --workspace=@job-search/shared
+RUN npm run build --workspace=@job-search/api
 
-CMD ["npm", "start"]
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
+CMD ["node", "packages/api/dist/index.js"]
