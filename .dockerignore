@@ -6,3 +6,4 @@ build/
 *.log
 __pycache__/
 .venv/
+.git
