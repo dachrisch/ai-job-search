@@ -327,12 +327,15 @@ setup_env_vars() {
 
     export MONGODB_URI="mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search"
     export REDIS_URL="redis://$SERVYY_TEST_IP:$REDIS_PORT"
+    export SEARXNG_URL="https://search.lehel.xyz"
+    export SEARXNG_TOKEN="searxng-1fb783a09636b75a906441f891ab7749"
     export NODE_ENV="development"
     export LOG_LEVEL="info"
 
     log_success "Environment variables set:"
     echo "  MONGODB_URI=$MONGODB_URI"
     echo "  REDIS_URL=$REDIS_URL"
+    echo "  SEARXNG_URL=$SEARXNG_URL"
 }
 
 # Step 7: Start API and Frontend in background
