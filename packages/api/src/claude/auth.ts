@@ -9,6 +9,7 @@ export function isOAuthToken(token: string): boolean {
 export function buildAnthropicClient(token: string): Anthropic {
   if (isOAuthToken(token)) {
     return new Anthropic({
+      apiKey: null as any,
       authToken: token,
       defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
     })

@@ -48,7 +48,7 @@ export async function setClaudeToken(userId: string, token: string): Promise<voi
     const { buildAnthropicClient } = await import('../claude/auth.js')
     const client = buildAnthropicClient(token)
     await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5',
       max_tokens: 10,
       messages: [{ role: 'user', content: 'ping' }]
     })

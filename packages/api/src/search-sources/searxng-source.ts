@@ -179,7 +179,7 @@ Return exactly this JSON format:
     })
 
     const response = await this.anthropic.messages.create({
-      model: 'claude-opus-4-8',
+      model: 'claude-haiku-4-5',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }]
     })
