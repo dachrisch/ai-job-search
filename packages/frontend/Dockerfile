@@ -2,7 +2,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json tsconfig.json ./
 COPY packages/frontend/package.json ./packages/frontend/
 COPY packages/shared/package.json ./packages/shared/
 
