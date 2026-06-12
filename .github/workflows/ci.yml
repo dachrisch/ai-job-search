@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [master, main]
+    tags-ignore:
+      - "v*"
   pull_request:
     branches: [master, main]
 
@@ -90,16 +92,67 @@ jobs:
         run: npm run build
         working-directory: packages/frontend
 
+  docker-image-api:
+    needs: [test, lint]
+    uses: ./.github/workflows/part_docker_build.yaml
+    with:
+      dockerfile: packages/api/Dockerfile
+      image_name: job-search-api
+
+  docker-image-frontend:
+    needs: [test, lint]
+    uses: ./.github/workflows/part_docker_build.yaml
+    with:
+      dockerfile: packages/frontend/Dockerfile
+      image_name: job-search-frontend
+
+  docker-image-crawler:
+    needs: [test, lint]
+    uses: ./.github/workflows/part_docker_build.yaml
+    with:
+      dockerfile: crawler/Dockerfile
+      image_name: job-search-crawler
+
+  image-test-api:
+    needs: [docker-image-api]
+    uses: ./.github/workflows/part_docker_test.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-api.outputs.artifact_name }}
+      image_name: job-search-api
+      env_vars: >-
+        -e MONGODB_URI=mongodb://host.docker.internal:27017/test
+        -e REDIS_URL=redis://host.docker.internal:6379
+        -e CLAUDE_API_KEY=ci-dummy
+        -e JWT_SECRET=ci-test-secret
+
+  image-test-frontend:
+    needs: [docker-image-frontend]
+    uses: ./.github/workflows/part_docker_test.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-frontend.outputs.artifact_name }}
+      image_name: job-search-frontend
+
+  image-test-crawler:
+    needs: [docker-image-crawler]
+    uses: ./.github/workflows/part_docker_test.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-crawler.outputs.artifact_name }}
+      image_name: job-search-crawler
+
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test, lint, image-test-api, image-test-frontend, image-test-crawler]
     if: always()
 
     steps:
       - name: Check CI status
         run: |
-          if [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.lint.result }}" = "failure" ]; then
+          if [ "${{ needs.test.result }}" = "failure" ] || \
+             [ "${{ needs.lint.result }}" = "failure" ] || \
+             [ "${{ needs.image-test-api.result }}" = "failure" ] || \
+             [ "${{ needs.image-test-frontend.result }}" = "failure" ] || \
+             [ "${{ needs.image-test-crawler.result }}" = "failure" ]; then
             echo "❌ CI failed"
             exit 1
           else
