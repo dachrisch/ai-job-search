@@ -101,7 +101,7 @@ jobs:
       pre_build_command: |
         npm install
         npm run build --workspace=@job-search/shared
-        npm run build --workspace=@job-search/api
+        npx esbuild packages/api/src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=packages/api/dist/index.js --packages=external
 
   docker-image-frontend:
     needs: [test, lint]
