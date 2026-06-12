@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: 🐳🏗️🧪🚀 Build, Test and Deploy Docker images
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-deploy
+  cancel-in-progress: true
+
+jobs:
+  docker-image-api:
+    uses: ./.github/workflows/part_docker_build.yaml
+    with:
+      dockerfile: packages/api/Dockerfile
+      image_name: job-search-api
+      version: "${{ github.ref_name }}"
+
+  docker-image-frontend:
+    uses: ./.github/workflows/part_docker_build.yaml
+    with:
+      dockerfile: packages/frontend/Dockerfile
+      image_name: job-search-frontend
+      version: "${{ github.ref_name }}"
+
+  docker-image-crawler:
+    uses: ./.github/workflows/part_docker_build.yaml
+    with:
+      dockerfile: crawler/Dockerfile
+      image_name: job-search-crawler
+      version: "${{ github.ref_name }}"
+
+  image-test-api:
+    needs: [docker-image-api]
+    uses: ./.github/workflows/part_docker_test.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-api.outputs.artifact_name }}
+      image_name: job-search-api
+      env_vars: >-
+        -e MONGODB_URI=mongodb://host.docker.internal:27017/test
+        -e REDIS_URL=redis://host.docker.internal:6379
+        -e CLAUDE_API_KEY=ci-dummy
+        -e JWT_SECRET=ci-test-secret
+
+  image-test-frontend:
+    needs: [docker-image-frontend]
+    uses: ./.github/workflows/part_docker_test.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-frontend.outputs.artifact_name }}
+      image_name: job-search-frontend
+
+  image-test-crawler:
+    needs: [docker-image-crawler]
+    uses: ./.github/workflows/part_docker_test.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-crawler.outputs.artifact_name }}
+      image_name: job-search-crawler
+
+  image-push-api:
+    needs: [docker-image-api, image-test-api]
+    secrets: inherit
+    uses: ./.github/workflows/part_docker_push_artifact.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-api.outputs.artifact_name }}
+      image_name: dachrisch/job-search-api
+      local_image_name: job-search-api
+
+  image-push-frontend:
+    needs: [docker-image-frontend, image-test-frontend]
+    secrets: inherit
+    uses: ./.github/workflows/part_docker_push_artifact.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-frontend.outputs.artifact_name }}
+      image_name: dachrisch/job-search-frontend
+      local_image_name: job-search-frontend
+
+  image-push-crawler:
+    needs: [docker-image-crawler, image-test-crawler]
+    secrets: inherit
+    uses: ./.github/workflows/part_docker_push_artifact.yaml
+    with:
+      artifact_name: ${{ needs.docker-image-crawler.outputs.artifact_name }}
+      image_name: dachrisch/job-search-crawler
+      local_image_name: job-search-crawler
