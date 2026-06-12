@@ -6,13 +6,12 @@ COPY package.json package-lock.json tsconfig.json ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm install
+# Install production dependencies only (TypeScript compiled before Docker build)
+RUN npm install --omit=dev
 
-COPY packages/api/ ./packages/api/
-COPY packages/shared/ ./packages/shared/
-
-RUN npm run build --workspace=@job-search/shared
-RUN NODE_OPTIONS="--max-old-space-size=6144" npm run build --workspace=@job-search/api
+# Copy pre-compiled JavaScript output (compiled by CI before docker build)
+COPY packages/shared/dist ./packages/shared/dist
+COPY packages/api/dist ./packages/api/dist
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1

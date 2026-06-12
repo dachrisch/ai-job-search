@@ -1,5 +1,7 @@
 node_modules/
 dist/
+!packages/api/dist/
+!packages/shared/dist/
 build/
 .env
 .DS_Store

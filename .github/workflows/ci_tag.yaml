@@ -21,6 +21,10 @@ jobs:
       dockerfile: packages/api/Dockerfile
       image_name: job-search-api
       version: "${{ github.ref_name }}"
+      pre_build_command: |
+        npm install
+        npm run build --workspace=@job-search/shared
+        npm run build --workspace=@job-search/api
 
   docker-image-frontend:
     uses: ./.github/workflows/part_docker_build.yaml
