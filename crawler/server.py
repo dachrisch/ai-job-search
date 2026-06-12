@@ -39,6 +39,11 @@ def _get_or_create_limiter(domain: str) -> RateLimiter:
     return _rate_limiters[domain]
 
 
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'})
+
+
 @app.route('/crawler/scrape', methods=['POST'])
 def scrape():
     """
