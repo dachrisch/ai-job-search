@@ -57,7 +57,10 @@ export async function setClaudeToken(userId: string, token: string): Promise<voi
     if (error.status === 401) {
       throw new Error('Invalid Claude token. Please check your API key or OAuth token and try again.')
     }
-    throw new Error(`Failed to validate Claude token: ${error.message}`)
+    // 429 rate-limit means the token is valid but temporarily throttled — accept it
+    if (error.status !== 429) {
+      throw new Error(`Failed to validate Claude token: ${error.message}`)
+    }
   }
 
   await UserModel.findByIdAndUpdate(userId, { claudeApiToken: token })
