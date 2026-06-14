@@ -260,9 +260,9 @@ describe('Event Handlers', () => {
       ]
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create).mockResolvedValueOnce(mockCompanyDocs[0] as any)
-      vi.mocked(CompanyModel.create).mockResolvedValueOnce(mockCompanyDocs[1] as any)
-      vi.mocked(CompanyModel.create).mockResolvedValueOnce(mockCompanyDocs[2] as any)
+      vi.mocked(CompanyModel.findOneAndUpdate).mockResolvedValueOnce(mockCompanyDocs[0] as any)
+      vi.mocked(CompanyModel.findOneAndUpdate).mockResolvedValueOnce(mockCompanyDocs[1] as any)
+      vi.mocked(CompanyModel.findOneAndUpdate).mockResolvedValueOnce(mockCompanyDocs[2] as any)
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       await eventHandlers.companies_identified(
@@ -274,16 +274,17 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      // Verify companies were created
-      expect(CompanyModel.create).toHaveBeenCalledTimes(3)
-      expect(CompanyModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
+      // Verify companies were upserted
+      expect(CompanyModel.findOneAndUpdate).toHaveBeenCalledTimes(3)
+      expect(CompanyModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { url: 'https://careers.google.com' },
+        { $set: expect.objectContaining({
           name: 'Google',
-          url: 'https://careers.google.com',
           status: 'pending_crawl',
           discoveredFrom: 'search_results',
           searchQuery: 'software engineer',
-        })
+        }) },
+        { upsert: true, new: true }
       )
 
       // Verify session was updated
@@ -307,9 +308,9 @@ describe('Event Handlers', () => {
       }))
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create)
-        .mockImplementation((data) =>
-          Promise.resolve(mockCompanyDocs[parseInt(data.name.match(/\d+/)[0]) - 1])
+      vi.mocked(CompanyModel.findOneAndUpdate)
+        .mockImplementation((_filter: any, update: any) =>
+          Promise.resolve(mockCompanyDocs[parseInt(update.$set.name.match(/\d+/)[0]) - 1])
         )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
@@ -337,7 +338,7 @@ describe('Event Handlers', () => {
       const mockCompanyDocs = [{ _id: 'company-1' }, { _id: 'company-2' }]
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create)
+      vi.mocked(CompanyModel.findOneAndUpdate)
         .mockResolvedValueOnce(mockCompanyDocs[0] as any)
         .mockResolvedValueOnce(mockCompanyDocs[1] as any)
       vi.mocked(addEvent).mockResolvedValue('job-1')
@@ -733,7 +734,7 @@ describe('Event Handlers', () => {
       ]
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create)
+      vi.mocked(CompanyModel.findOneAndUpdate)
         .mockResolvedValueOnce(mockCompanyDocs[0] as any)
         .mockResolvedValueOnce(mockCompanyDocs[1] as any)
         .mockResolvedValueOnce(mockCompanyDocs[2] as any)
@@ -748,17 +749,18 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      // Verify companies were created
-      expect(CompanyModel.create).toHaveBeenCalledTimes(3)
-      expect(CompanyModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          url: 'https://google.com/careers',
+      // Verify companies were upserted
+      expect(CompanyModel.findOneAndUpdate).toHaveBeenCalledTimes(3)
+      expect(CompanyModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { url: 'https://google.com/careers' },
+        { $set: expect.objectContaining({
           name: 'Google',
           status: 'pending_crawl',
           discoveredFrom: 'searxng',
           confidence: 'high',
           searchQuery: 'software engineer',
-        })
+        }) },
+        { upsert: true, new: true }
       )
 
       // Verify session was updated with discovery stats
@@ -786,7 +788,7 @@ describe('Event Handlers', () => {
       }))
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create)
+      vi.mocked(CompanyModel.findOneAndUpdate)
         .mockImplementation(() =>
           Promise.resolve(mockCompanyDocs[Math.floor(Math.random() * 20)])
         )
@@ -825,13 +827,13 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      expect(CompanyModel.create).not.toHaveBeenCalled()
+      expect(CompanyModel.findOneAndUpdate).not.toHaveBeenCalled()
       expect(addEvent).not.toHaveBeenCalled()
     })
 
     it('should emit search_failed on error', async () => {
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create).mockRejectedValue(new Error('Database error'))
+      vi.mocked(CompanyModel.findOneAndUpdate).mockRejectedValue(new Error('Database error'))
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       const companies = [
@@ -865,7 +867,7 @@ describe('Event Handlers', () => {
       ]
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(CompanyModel.create)
+      vi.mocked(CompanyModel.findOneAndUpdate)
         .mockResolvedValueOnce(mockCompanyDocs[0] as any)
         .mockResolvedValueOnce(mockCompanyDocs[1] as any)
       vi.mocked(addEvent).mockResolvedValue('job-1')
@@ -880,18 +882,18 @@ describe('Event Handlers', () => {
       )
 
       // Verify confidence levels are preserved
-      expect(CompanyModel.create).toHaveBeenNthCalledWith(
+      expect(CompanyModel.findOneAndUpdate).toHaveBeenNthCalledWith(
         1,
-        expect.objectContaining({
-          confidence: 'high',
-        })
+        { url: 'https://google.com/careers' },
+        { $set: expect.objectContaining({ confidence: 'high' }) },
+        { upsert: true, new: true }
       )
 
-      expect(CompanyModel.create).toHaveBeenNthCalledWith(
+      expect(CompanyModel.findOneAndUpdate).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({
-          confidence: 'low',
-        })
+        { url: 'https://startup.com/jobs' },
+        { $set: expect.objectContaining({ confidence: 'low' }) },
+        { upsert: true, new: true }
       )
     })
   })
