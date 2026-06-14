@@ -22,7 +22,7 @@ export class SearchSourceManager {
   private blocklist: string[]
   private anthropic: ReturnType<typeof buildAnthropicClient>
 
-  constructor(claudeApiKey?: string) {
+  constructor(claudeApiKey: string) {
     this.searxngUrl = process.env.SEARXNG_URL || 'https://search.lehel.xyz'
     this.searxngToken = process.env.SEARXNG_TOKEN || ''
     this.blocklist = (process.env.JOB_AGGREGATOR_BLOCKLIST || '')

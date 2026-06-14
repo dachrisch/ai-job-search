@@ -33,17 +33,12 @@ describe.skipIf(process.env.CI)('Claude API Client', () => {
     // Cleanup
   })
 
-  it('should call Claude API with user token', async () => {
+  it.skipIf(!process.env.TEST_CLAUDE_TOKEN)('should call Claude API with user token', async () => {
     const user = await UserModel.create({
       email: 'test@example.com',
       passwordHash: 'hash',
-      claudeApiToken: process.env.CLAUDE_API_KEY || 'test-token',
+      claudeApiToken: process.env.TEST_CLAUDE_TOKEN,
     })
-
-    if (!process.env.CLAUDE_API_KEY) {
-      console.log('Skipping test: CLAUDE_API_KEY not set')
-      return
-    }
 
     const response = await callClaude(user._id.toString(), 'Hello Claude')
     expect(response).toBeTypeOf('string')

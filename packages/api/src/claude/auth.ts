@@ -6,16 +6,13 @@ export function isOAuthToken(token: string): boolean {
   return typeof token === 'string' && token.startsWith(OAUTH_PREFIX)
 }
 
-export function buildAnthropicClient(token?: string): Anthropic {
-  if (token && isOAuthToken(token)) {
+export function buildAnthropicClient(token: string): Anthropic {
+  if (isOAuthToken(token)) {
     return new Anthropic({
       apiKey: null as any,
       authToken: token,
       defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
     })
   }
-  if (token) {
-    return new Anthropic({ apiKey: token })
-  }
-  return new Anthropic()
+  return new Anthropic({ apiKey: token })
 }

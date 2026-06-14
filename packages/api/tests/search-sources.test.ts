@@ -5,8 +5,6 @@ import { DiscoveredCompany } from '@job-search/shared'
 process.env.SEARXNG_URL = 'https://search.lehel.xyz'
 process.env.SEARXNG_TOKEN = 'test-token'
 process.env.JOB_AGGREGATOR_BLOCKLIST = 'indeed.com,linkedin.com,glassdoor.com,dice.com,builtin.com,monster.com'
-process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
-
 // Create mock before any imports
 const mockClaudeMessage = vi.fn()
 
@@ -34,7 +32,7 @@ describe('SearchSourceManager', () => {
     process.env.JOB_AGGREGATOR_BLOCKLIST =
       'indeed.com,linkedin.com,glassdoor.com,dice.com,builtin.com,monster.com'
 
-    manager = new SearchSourceManager()
+    manager = new SearchSourceManager('test-token')
     vi.clearAllMocks()
   })
 
@@ -372,7 +370,7 @@ describe('SearchSourceManager', () => {
 
     it('should use SEARXNG_URL from environment', async () => {
       process.env.SEARXNG_URL = 'https://custom.searxng.xyz'
-      const customManager = new SearchSourceManager()
+      const customManager = new SearchSourceManager('test-token')
 
       vi.mocked(axios.get).mockResolvedValueOnce({
         data: { results: [] }
@@ -386,7 +384,7 @@ describe('SearchSourceManager', () => {
 
     it('should respect blocklist from environment', async () => {
       process.env.JOB_AGGREGATOR_BLOCKLIST = 'custom-aggregator.com,another-agg.com'
-      const customManager = new SearchSourceManager()
+      const customManager = new SearchSourceManager('test-token')
 
       vi.mocked(axios.get).mockResolvedValueOnce({
         data: {
