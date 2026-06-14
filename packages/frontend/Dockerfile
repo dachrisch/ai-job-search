@@ -11,6 +11,9 @@ RUN npm install
 COPY packages/frontend/ ./packages/frontend/
 COPY packages/shared/ ./packages/shared/
 
+ARG VITE_BUILD_VERSION=dev
+ENV VITE_BUILD_VERSION=$VITE_BUILD_VERSION
+
 RUN npm run build --workspace=@job-search/shared
 RUN npm run build --workspace=@job-search/frontend
 
