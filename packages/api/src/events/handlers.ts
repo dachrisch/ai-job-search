@@ -86,18 +86,23 @@ export const eventHandlers = {
         return
       }
 
-      // Store each company in MongoDB
+      // Store each company in MongoDB (upsert by URL to handle re-discovered companies)
       const createdCompanies = []
       for (const company of data.companies) {
-        const doc = await CompanyModel.create({
-          url: company.url,
-          name: company.name,
-          discoveredFrom: company.discoveredFrom,
-          searchQuery: data.userQuery,
-          confidence: company.confidence,
-          status: 'pending_crawl',
-          crawlAttempts: 0
-        })
+        const doc = await CompanyModel.findOneAndUpdate(
+          { url: company.url },
+          {
+            $set: {
+              name: company.name,
+              discoveredFrom: company.discoveredFrom,
+              searchQuery: data.userQuery,
+              confidence: company.confidence,
+              status: 'pending_crawl',
+              crawlAttempts: 0
+            }
+          },
+          { upsert: true, new: true }
+        )
         createdCompanies.push(doc)
       }
 
@@ -185,17 +190,22 @@ export const eventHandlers = {
         return
       }
 
-      // Create Company documents in database
+      // Create Company documents in database (upsert by URL to handle re-discovered companies)
       const createdCompanies = []
       for (const company of data.companies) {
-        const doc = await CompanyModel.create({
-          name: company.name,
-          url: company.url,
-          location: company.location,
-          searchQuery: data.query,
-          discoveredFrom: 'search_results',
-          status: 'pending_crawl'
-        })
+        const doc = await CompanyModel.findOneAndUpdate(
+          { url: company.url },
+          {
+            $set: {
+              name: company.name,
+              location: company.location,
+              searchQuery: data.query,
+              discoveredFrom: 'search_results',
+              status: 'pending_crawl'
+            }
+          },
+          { upsert: true, new: true }
+        )
         createdCompanies.push(doc)
       }
 
