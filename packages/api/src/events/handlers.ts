@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { SearchSessionModel, JobModel, SiteModel, CompanyModel, UserModel } from '../db/models.js'
 import { addEvent } from './queue.js'
 import { callClaude } from '../claude/client.js'
@@ -261,6 +262,42 @@ export const eventHandlers = {
     } catch (error) {
       console.error('Error in companies_queued_for_crawl handler:', error)
       await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
+    }
+  },
+
+  crawl_company: async (
+    data: { searchId: string; companyId: string; url: string; companyName: string; query: string },
+    sseManager: SSEManager
+  ) => {
+    try {
+      console.log(`\n🤖 AGENT LOG - Crawl Company`)
+      console.log(`   Crawling ${data.companyName} at ${data.url}`)
+
+      const crawlerUrl = process.env.CRAWLER_SERVICE_URL || 'http://localhost:5000'
+      const response = await axios.post(`${crawlerUrl}/crawler/crawl-company`, {
+        searchId: data.searchId,
+        companyId: data.companyId,
+        url: data.url,
+        companyName: data.companyName,
+        query: data.query
+      }, { timeout: 60000 })
+
+      const result = response.data
+      console.log(`   ✅ Crawled ${data.companyName}: ${result.jobs?.length || 0} jobs found`)
+
+      await addEvent('company_crawled', {
+        searchId: data.searchId,
+        companyId: data.companyId,
+        jobs: result.jobs || [],
+        discoveredCompanies: result.discoveredCompanies || []
+      })
+    } catch (error: any) {
+      console.error(`Error crawling company ${data.companyName}:`, error.message)
+      const company = await CompanyModel.findById(data.companyId)
+      if (company) {
+        company.status = 'failed'
+        await company.save()
+      }
     }
   },
 
