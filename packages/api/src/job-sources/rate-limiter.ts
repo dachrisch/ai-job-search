@@ -27,11 +27,11 @@ export class RateLimiter {
     }
 
     this.activeRequests++
-    this.lastRequestTime = Date.now()
 
     try {
       return await fn()
     } finally {
+      this.lastRequestTime = Date.now()
       this.activeRequests--
       const resolve = this.queue.shift()
       if (resolve) resolve()
