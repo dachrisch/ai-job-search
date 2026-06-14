@@ -10,7 +10,7 @@ export function Footer() {
       borderTop: '1px solid #eee',
       marginTop: 'auto'
     }}>
-      done with ❤️ in 🥨 &middot; {version}
+      made with ❤️ in 🥨 &middot; {version}
     </footer>
   )
 }
