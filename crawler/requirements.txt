@@ -18,4 +18,4 @@ requests==2.34.2
 python-dotenv==1.2.2
 
 # Structured JSON logging
-python-json-logger==2.0.7
+python-json-logger==4.1.0
