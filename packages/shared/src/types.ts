@@ -29,6 +29,20 @@ export interface Job {
   scoredVersion: number
 }
 
+export interface DiscoveredApiConfig {
+  endpoint: string
+  method: 'GET' | 'POST'
+  paramTemplate: Record<string, any>
+  fieldMapping: {
+    title: string
+    url: string
+    location: string
+    description: string
+  }
+  platform?: string
+  discoveredAt: Date
+}
+
 export interface Company {
   _id: string
   url: string
@@ -41,6 +55,7 @@ export interface Company {
   status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed'
   crawlAttempts: number
   lastCrawlTime?: Date
+  discoveredApi?: DiscoveredApiConfig
   createdAt: Date
   updatedAt: Date
 }
