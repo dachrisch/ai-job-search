@@ -45,6 +45,20 @@ const siteSchema = new Schema<Site>(
   { timestamps: { createdAt: true, updatedAt: false } }
 )
 
+const discoveredApiSchema = new Schema({
+  endpoint: { type: String, required: true },
+  method: { type: String, enum: ['GET', 'POST'], required: true },
+  paramTemplate: { type: Schema.Types.Mixed, required: true },
+  fieldMapping: {
+    title: { type: String, required: true },
+    url: { type: String, required: true },
+    location: { type: String, required: true },
+    description: { type: String, required: true },
+  },
+  platform: { type: String },
+  discoveredAt: { type: Date, required: true },
+}, { _id: false })
+
 const companySchema = new Schema<Company>(
   {
     url: { type: String, required: true, unique: true },
@@ -62,6 +76,7 @@ const companySchema = new Schema<Company>(
     },
     crawlAttempts: { type: Number, default: 0 },
     lastCrawlTime: { type: Date },
+    discoveredApi: { type: discoveredApiSchema },
   },
   { timestamps: true }
 )
