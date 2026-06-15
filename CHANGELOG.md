@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/dachrisch/ai-job-search/compare/v0.2.4...v0.2.5) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deploy:** add egress network to crawler for internet access ([46bd185](https://github.com/dachrisch/ai-job-search/commit/46bd1857d45d431825b55c94d3ba0cf0e862dd3d))
+
 ## [0.2.4](https://github.com/dachrisch/ai-job-search/compare/v0.2.3...v0.2.4) (2026-06-15)
 
 
