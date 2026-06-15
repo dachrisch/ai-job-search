@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/dachrisch/ai-job-search/compare/v0.2.1...v0.2.2) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency beautifulsoup4 to v4.15.0 ([#6](https://github.com/dachrisch/ai-job-search/issues/6)) ([a8645ee](https://github.com/dachrisch/ai-job-search/commit/a8645eef74312eabd24365b0e8438446bfa4d91c))
+* **deps:** update dependency flask to v3.1.3 ([#7](https://github.com/dachrisch/ai-job-search/issues/7)) ([32a6cd6](https://github.com/dachrisch/ai-job-search/commit/32a6cd6a728fed30cd54643db71449e05a468f05))
+* **deps:** update dependency mongodb-memory-server to v11.2.0 ([#9](https://github.com/dachrisch/ai-job-search/issues/9)) ([4b49815](https://github.com/dachrisch/ai-job-search/commit/4b49815f4c13bf22b2e898a24bc28476fa847c15))
+
 ## [0.2.1](https://github.com/dachrisch/ai-job-search/compare/v0.2.0...v0.2.1) (2026-06-15)
 
 
