@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/dachrisch/ai-job-search/compare/v0.2.0...v0.2.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deps:** replace dependency npm-run-all with npm-run-all2 ^5.0.0 ([#3](https://github.com/dachrisch/ai-job-search/issues/3)) ([fe50d0d](https://github.com/dachrisch/ai-job-search/commit/fe50d0d1f77afadde3cd6620e0b0b8c82030a146))
+* send searchId and correct timeout units to crawler service ([596cd82](https://github.com/dachrisch/ai-job-search/commit/596cd82228bd24015b5a3baa8832c563ba62036e))
+
 ## [0.2.0](https://github.com/dachrisch/ai-job-search/compare/v0.1.1...v0.2.0) (2026-06-14)
 
 
