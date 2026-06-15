@@ -16,7 +16,7 @@
     "start:dev": "npm-run-all --parallel start:api start:frontend"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "mongodb-memory-server": "^11.1.0",
     "npm-run-all2": "^9.0.0",
     "redis-mock": "^0.56.3"
