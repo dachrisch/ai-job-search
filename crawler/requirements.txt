@@ -1,6 +1,6 @@
 # Web scraping
 scrapy==2.16.0
-beautifulsoup4==4.12.3
+beautifulsoup4==4.15.0
 
 # HTTP server
 flask==3.0.0
