@@ -752,7 +752,8 @@ ${jobDetails}`
       console.log(`   🔍 Scraping jobs from specified sources...`)
       const results = await jobSourceManager.scrapeJobs(data.sites, data.keywords, {
         timeout: 15000,
-        maxRetries: 2
+        maxRetries: 2,
+        searchId: data.searchId
       })
 
       // Aggregate jobs from all sources

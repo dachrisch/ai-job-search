@@ -70,7 +70,7 @@ export class JobSourceManager {
         scraped.add(url)
 
         // Scrape the page - Using scrapeJobs which now calls CrawlerSource.scrapeBulk
-        const results = await this.scrapeJobs([url], keywords)
+        const results = await this.scrapeJobs([url], keywords, { searchId })
 
         // Collect jobs
         results.forEach(result => {

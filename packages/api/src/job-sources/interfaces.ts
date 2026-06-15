@@ -28,6 +28,7 @@ export interface JobSourceConfig {
   timeout?: number
   maxRetries?: number
   userAgent?: string
+  searchId?: string
 }
 
 export interface JobSource {

@@ -12,10 +12,11 @@ export class CrawlerSource implements JobSource {
   async scrapeBulk(urls: string[], keywords: string, config?: JobSourceConfig): Promise<JobScraperResult[]> {
     try {
       const response = await axios.post(`${this.serviceUrl}/crawler/scrape`, {
+        searchId: config?.searchId || 'unknown',
         sites: urls,
         keywords,
         config: {
-          timeout: config?.timeout || 30000,
+          timeout: config?.timeout ? Math.round(config.timeout / 1000) : 30,
           maxRetries: config?.maxRetries || 3
         }
       }, { timeout: 35000 })
