@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.4](https://github.com/dachrisch/ai-job-search/compare/v0.2.3...v0.2.4) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency python-dotenv to v1.2.2 ([be64178](https://github.com/dachrisch/ai-job-search/commit/be641782dfe7ca63f587326a0f968749d6669536))
+* **deps:** update dependency python-dotenv to v1.2.2 ([63b044b](https://github.com/dachrisch/ai-job-search/commit/63b044b2f28aa0246f0c2f46bea7e313ce2a9954))
+* **deps:** update dependency requests to v2.34.2 ([c6f6826](https://github.com/dachrisch/ai-job-search/commit/c6f6826adde8c598d8ec862c79291d4cfa776a1e))
+* **deps:** update dependency requests to v2.34.2 ([41206c8](https://github.com/dachrisch/ai-job-search/commit/41206c8a75a19bb9550c71958cadd53bbe67dfcd))
+* run Scrapy crawls in subprocess to avoid ReactorNotRestartable ([6a28ab0](https://github.com/dachrisch/ai-job-search/commit/6a28ab01804905b90bce3e08b992631fc31fd782))
+
 ## [0.2.3](https://github.com/dachrisch/ai-job-search/compare/v0.2.2...v0.2.3) (2026-06-15)
 
 
