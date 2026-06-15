@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.3](https://github.com/dachrisch/ai-job-search/compare/v0.2.2...v0.2.3) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency redis to v5.3.1 ([3e32d75](https://github.com/dachrisch/ai-job-search/commit/3e32d7512c8608a3e78a123bbc81a89bd9da9996))
+* **deps:** update dependency redis to v5.3.1 ([de66525](https://github.com/dachrisch/ai-job-search/commit/de66525abc2a82da566c6d163a46befb1266ab67))
+* **deps:** update python docker tag to v3.14 ([09f369e](https://github.com/dachrisch/ai-job-search/commit/09f369e84814cec5e9420f38dc7a8eaaab153233))
+* **deps:** update python docker tag to v3.14 ([6ca6dd1](https://github.com/dachrisch/ai-job-search/commit/6ca6dd1795c50f3c2972cd29a76131acbb2b6ddd))
+
 ## [0.2.2](https://github.com/dachrisch/ai-job-search/compare/v0.2.1...v0.2.2) (2026-06-15)
 
 
