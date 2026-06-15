@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.2.6](https://github.com/dachrisch/ai-job-search/compare/v0.2.5...v0.2.6) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @types/express to v5 ([2a7f28c](https://github.com/dachrisch/ai-job-search/commit/2a7f28c8853174cd3ece3d6bb66237badc7999aa))
+* **deps:** update dependency @types/express to v5 ([e74e526](https://github.com/dachrisch/ai-job-search/commit/e74e526f9d4d3655e472c8f82334603c4fc66846))
+* **deps:** update dependency @vitejs/plugin-react to v6 ([6dd189f](https://github.com/dachrisch/ai-job-search/commit/6dd189f83ac91ab3570b8d03ecc46b467bd9c2d3))
+* **deps:** update dependency @vitejs/plugin-react to v6 ([e8f4f2f](https://github.com/dachrisch/ai-job-search/commit/e8f4f2fb6229d377b86342873ca29c19c7bba05b))
+* **deps:** update dependency dotenv to v17 ([85f3f42](https://github.com/dachrisch/ai-job-search/commit/85f3f42e5bbddf0162885cb2e098ba12fcb27c9e))
+* **deps:** update dependency dotenv to v17 ([928132d](https://github.com/dachrisch/ai-job-search/commit/928132ddfa3dc30020d561988b31de6d67c75ec6))
+* **deps:** update dependency mongoose to v9 ([1d9c723](https://github.com/dachrisch/ai-job-search/commit/1d9c7236f568c03b973e081a9dec162879590bc9))
+* **deps:** update dependency mongoose to v9 ([4702f73](https://github.com/dachrisch/ai-job-search/commit/4702f7343fc9ae922d799f7c345f1550298f8550))
+* **deps:** update dependency redis ([ad2322e](https://github.com/dachrisch/ai-job-search/commit/ad2322e669086453185796df8cbd816e876863d0))
+* **deps:** update dependency redis ([36878d9](https://github.com/dachrisch/ai-job-search/commit/36878d9203590d909901acbc7ae963604dad4a43))
+* **deps:** update dependency supertest to v7 ([e32f395](https://github.com/dachrisch/ai-job-search/commit/e32f3955d6d964ea8e82697c5ffc6ea48860a80e))
+* **deps:** update dependency supertest to v7 ([0bfe266](https://github.com/dachrisch/ai-job-search/commit/0bfe26640f67a16bd5aec6b77f2e99aa884ee13a))
+* **deps:** update dependency typescript to v6 ([58d5363](https://github.com/dachrisch/ai-job-search/commit/58d5363a200508e8925aedb885d88baf0357c960))
+* **deps:** update dependency typescript to v6 ([0f85d64](https://github.com/dachrisch/ai-job-search/commit/0f85d64ab1ba00d4a65761a8b2db7ec0f259b09a))
+
+## [0.2.5](https://github.com/dachrisch/ai-job-search/compare/v0.2.4...v0.2.5) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deploy:** add egress network to crawler for internet access ([46bd185](https://github.com/dachrisch/ai-job-search/commit/46bd1857d45d431825b55c94d3ba0cf0e862dd3d))
+
 ## [0.2.4](https://github.com/dachrisch/ai-job-search/compare/v0.2.3...v0.2.4) (2026-06-15)
 
 

@@ -15,7 +15,7 @@ jobs:
 
     services:
       mongodb:
-        image: mongo:7.0
+        image: mongo:8.3
         options: >-
           --health-cmd mongosh
           --health-interval 10s
@@ -25,7 +25,7 @@ jobs:
           - 27017:27017
 
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: 'npm'
@@ -72,7 +72,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: 'npm'
