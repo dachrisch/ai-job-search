@@ -1,4 +1,5 @@
 import argparse
+import multiprocessing
 import socket
 import time
 from collections import defaultdict
@@ -48,6 +49,7 @@ def _resolve_spider(domain: str) -> type:
 
 
 # Global list to collect jobs from pipeline (reset before each crawl)
+# Only used within a worker subprocess — never shared across processes.
 collected_jobs = []
 
 
@@ -58,6 +60,145 @@ class JobCollectorPipeline:
                 item[field] = ' '.join(item[field].split())
         collected_jobs.append(dict(item))
         return item
+
+
+def _run_crawl_jobs_worker(
+    queue: multiprocessing.Queue,
+    sites: list,
+    keywords: str,
+    config_timeout: int | None,
+    config_max_retries: int | None,
+) -> None:
+    """
+    Worker that runs Scrapy in a fresh subprocess so the Twisted reactor
+    starts clean. Results are put on queue as a list of raw result dicts.
+    """
+    global collected_jobs
+    collected_jobs = []
+
+    from scrapy.crawler import CrawlerProcess
+    from scrapy.utils.project import get_project_settings
+    from job_crawler.spiders.generic_spider import GenericJobSpider
+    from job_crawler.spiders.linkedin_spider import LinkedInSpider
+    from job_crawler.spiders.indeed_spider import IndeedSpider
+    from job_crawler.spiders.glassdoor_spider import GlassdoorSpider
+    from models import CrawlerConfig, SiteResult, scrapy_item_to_job_data
+    import config as _cfg
+    from collections import defaultdict
+
+    REGISTRY = [
+        ("linkedin.com", LinkedInSpider),
+        ("indeed.com", IndeedSpider),
+        ("glassdoor.com", GlassdoorSpider),
+    ]
+
+    def resolve(domain):
+        for pat, cls in REGISTRY:
+            if pat in domain:
+                return cls
+        return GenericJobSpider
+
+    cfg = CrawlerConfig(timeout=config_timeout, max_retries=config_max_retries)
+    site_jobs: dict = defaultdict(list)
+    site_errors: dict = defaultdict(list)
+    for site in sites:
+        site_jobs[site]
+        site_errors[site]
+
+    settings = get_project_settings()
+    settings.set('ITEM_PIPELINES', {'cli.JobCollectorPipeline': 300})
+    settings.set('ROBOTSTXT_OBEY', True)
+    settings.set('CONCURRENT_REQUESTS', 16)
+    settings.set('DOWNLOAD_DELAY', 1)
+    settings.set('USER_AGENT', _cfg.DEFAULT_USER_AGENT)
+    settings.set('LOG_LEVEL', 'INFO')
+    if cfg.timeout is not None:
+        settings.set('DOWNLOAD_TIMEOUT', cfg.timeout)
+    if cfg.max_retries is not None:
+        settings.set('RETRY_TIMES', cfg.max_retries)
+
+    process = CrawlerProcess(settings)
+    for site in sites:
+        spider_cls = resolve(site)
+        process.crawl(spider_cls, urls=[f"https://{site}/jobs"], keywords=keywords)
+
+    try:
+        process.start()
+    except Exception:
+        pass
+
+    for raw_item in collected_jobs:
+        source_url = raw_item.get('source_url', '')
+        matched = next((s for s in sites if s in source_url), source_url or 'unknown')
+        job = scrapy_item_to_job_data(raw_item)
+        if job is not None:
+            site_jobs[matched].append(job)
+
+    timestamp = SiteResult.utc_now_iso()
+    results = [
+        {
+            'source': site,
+            'jobs': [j.model_dump(by_alias=True) for j in site_jobs[site]],
+            'errors': site_errors[site],
+            'timestamp': timestamp,
+        }
+        for site in sites
+    ]
+    queue.put(results)
+
+
+def _run_company_crawl_worker(
+    queue: multiprocessing.Queue,
+    search_id: str,
+    company_id: str,
+    url: str,
+    company_name: str,
+    keywords: str,
+) -> None:
+    """
+    Worker that runs a single company crawl in a fresh subprocess so the
+    Twisted reactor starts clean.
+    """
+    global collected_jobs
+    collected_jobs = []
+
+    from scrapy.crawler import CrawlerProcess
+    from scrapy.utils.project import get_project_settings
+    from job_crawler.spiders.generic_career_spider import GenericCareerPageSpider
+    from models import SiteResult, scrapy_item_to_job_data
+    import config as _cfg
+
+    settings = get_project_settings()
+    settings.set('ITEM_PIPELINES', {'cli.JobCollectorPipeline': 300})
+    settings.set('ROBOTSTXT_OBEY', True)
+    settings.set('CONCURRENT_REQUESTS', 1)
+    settings.set('DOWNLOAD_DELAY', 1)
+    settings.set('USER_AGENT', _cfg.DEFAULT_USER_AGENT)
+    settings.set('LOG_LEVEL', 'INFO')
+    settings.set('DOWNLOAD_TIMEOUT', 30)
+
+    process = CrawlerProcess(settings)
+    process.crawl(GenericCareerPageSpider, urls=[url], keywords=keywords, company_name=company_name)
+
+    try:
+        process.start()
+    except Exception:
+        pass
+
+    validated_jobs = []
+    for raw_item in collected_jobs:
+        job = scrapy_item_to_job_data(raw_item)
+        if job is not None:
+            validated_jobs.append(job)
+
+    queue.put({
+        "search_id": search_id,
+        "company_id": company_id,
+        "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
+        "discovered_companies": [],
+        "errors": [],
+        "timestamp": SiteResult.utc_now_iso(),
+    })
 
 
 def _classify_exception(exc: BaseException) -> str:
@@ -111,7 +252,7 @@ def _make_error_dict(
     }
 
 
-def crawl_jobs(
+def crawl_jobs(  # noqa: C901
     sites: list[str],
     keywords: str,
     config: CrawlerConfig | None = None,
@@ -209,82 +350,38 @@ def crawl_jobs(
         site_errors[site]
 
     if active_sites:
-        settings = get_project_settings()
+        log.info("Registering spiders for sites", extra={"sites": active_sites})
 
-        settings.set('ITEM_PIPELINES', {'cli.JobCollectorPipeline': 300})
-        settings.set('ROBOTSTXT_OBEY', True)
-        settings.set('CONCURRENT_REQUESTS', 16)
-        settings.set('DOWNLOAD_DELAY', 1)
-        settings.set('USER_AGENT', _cfg.DEFAULT_USER_AGENT)
-        settings.set('LOG_LEVEL', 'INFO')
+        # Run the Scrapy crawl in a child process so the Twisted reactor starts
+        # fresh on every request (ReactorNotRestartable otherwise).
+        queue: multiprocessing.Queue = multiprocessing.Queue()
+        worker = multiprocessing.Process(
+            target=_run_crawl_jobs_worker,
+            args=(queue, active_sites, keywords, cfg.timeout, cfg.max_retries),
+            daemon=True,
+        )
+        worker.start()
+        timeout_s = (cfg.timeout or 30) * len(active_sites) + 60
+        worker.join(timeout=timeout_s)
 
-        if cfg.timeout is not None:
-            settings.set('DOWNLOAD_TIMEOUT', cfg.timeout)
-
-        if cfg.max_retries is not None:
-            settings.set('RETRY_TIMES', cfg.max_retries)
-
-        process = CrawlerProcess(settings)
-
-        for site in active_sites:
-            spider_cls = _resolve_spider(site)
-            url = f"https://{site}/jobs"
-            log.info(
-                "Registering spider for site",
-                extra={"site": site, "spider": spider_cls.name, "url": url},
-            )
-            process.crawl(spider_cls, urls=[url], keywords=keywords)
-
-        try:
-            process.start()
-        except Exception as exc:
-            error_type = _classify_exception(exc)
-            log.error(
-                "Scrapy process failed",
-                extra={"error": str(exc), "error_type": error_type},
-            )
-            # All active sites get the error; update breakers
+        if not queue.empty():
+            raw_results = queue.get_nowait()
+            for raw in raw_results:
+                site = raw.get('source', '')
+                for job_dict in raw.get('jobs', []):
+                    job = scrapy_item_to_job_data(job_dict)
+                    if job is not None:
+                        site_jobs[site].append(job)
+                site_errors[site].extend(raw.get('errors', []))
+        else:
+            # Worker timed out or crashed
             for site in active_sites:
-                breaker = breakers.get(site)
-                if breaker is not None:
-                    prev_state = breaker.state
-                    breaker.record_failure()
-                    if breaker.state is not prev_state:
-                        log.warning(
-                            "Circuit breaker state changed",
-                            extra={
-                                "site": site,
-                                "from": prev_state.value,
-                                "to": breaker.state.value,
-                            },
-                        )
                 site_errors[site].append(_make_error_dict(
-                    message=str(exc),
+                    message="Scrapy worker timed out or crashed",
                     site=site,
-                    error_type=error_type,
+                    error_type=ErrorType.UNKNOWN,
                     retry_count=0,
                 ))
-
-        # ------------------------------------------------------------------
-        # Map collected items back to requesting domains
-        # ------------------------------------------------------------------
-        for raw_item in collected_jobs:
-            source_url: str = raw_item.get('source_url', '')
-            matched_site = next(
-                (s for s in active_sites if s in source_url),
-                source_url or 'unknown',
-            )
-            job = scrapy_item_to_job_data(raw_item)
-            if job is not None:
-                site_jobs[matched_site].append(job)
-            else:
-                site_errors[matched_site].append({
-                    'message': 'Item failed validation',
-                    'site': matched_site,
-                    'error_type': ErrorType.INVALID_RESPONSE,
-                    'retry_count': 0,
-                    'raw': {k: v for k, v in raw_item.items() if k != 'description'},
-                })
 
     # ------------------------------------------------------------------
     # Post-flight: update circuit breakers and rate limiters
@@ -381,9 +478,6 @@ def crawl_company_jobs(
     Routes to GenericCareerPageSpider which is designed for company sites.
     Returns: { searchId, companyId, jobs: [...], discoveredCompanies: [...], errors: [...] }
     """
-    global collected_jobs
-    collected_jobs = []
-
     log.info(
         "Crawling company",
         extra={
@@ -394,85 +488,40 @@ def crawl_company_jobs(
         },
     )
 
-    try:
-        settings = get_project_settings()
-        settings.set('ITEM_PIPELINES', {'cli.JobCollectorPipeline': 300})
-        settings.set('ROBOTSTXT_OBEY', True)
-        settings.set('CONCURRENT_REQUESTS', 1)  # Single company, no concurrency
-        settings.set('DOWNLOAD_DELAY', 1)
-        settings.set('USER_AGENT', _cfg.DEFAULT_USER_AGENT)
-        settings.set('LOG_LEVEL', 'INFO')
-        settings.set('DOWNLOAD_TIMEOUT', 30)
+    # Run in a child process so the Twisted reactor starts fresh every time.
+    queue: multiprocessing.Queue = multiprocessing.Queue()
+    worker = multiprocessing.Process(
+        target=_run_company_crawl_worker,
+        args=(queue, search_id, company_id, url, company_name, keywords),
+        daemon=True,
+    )
+    worker.start()
+    worker.join(timeout=60)
 
-        process = CrawlerProcess(settings)
-
-        # Route to GenericCareerPageSpider
-        from job_crawler.spiders.generic_career_spider import GenericCareerPageSpider
-
-        log.info(
-            "Registering generic_career_spider",
-            extra={"url": url, "company": company_name},
-        )
-
-        process.crawl(
-            GenericCareerPageSpider,
-            urls=[url],
-            keywords=keywords,
-            company_name=company_name,
-        )
-
-        process.start()
-
-        # Validate and convert items
-        validated_jobs = []
-        for raw_item in collected_jobs:
-            job = scrapy_item_to_job_data(raw_item)
-            if job is not None:
-                validated_jobs.append(job)
-
+    if not queue.empty():
+        result = queue.get_nowait()
         log.info(
             "Company crawl succeeded",
             extra={
                 "search_id": search_id,
                 "company_id": company_id,
-                "jobs_extracted": len(validated_jobs),
+                "jobs_extracted": len(result.get("jobs", [])),
             },
         )
+        return result
 
-        return {
-            "search_id": search_id,
-            "company_id": company_id,
-            "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
-            "discovered_companies": [],  # Future: extract sister companies
-            "errors": [],
-            "timestamp": SiteResult.utc_now_iso(),
-        }
-
-    except Exception as exc:
-        error_msg = str(exc)
-        log.error(
-            "Company crawl failed",
-            extra={
-                "search_id": search_id,
-                "company_id": company_id,
-                "error": error_msg,
-            },
-        )
-
-        return {
-            "search_id": search_id,
-            "company_id": company_id,
-            "jobs": [],
-            "discovered_companies": [],
-            "errors": [
-                {
-                    "message": error_msg,
-                    "site": url,
-                    "error_type": ErrorType.UNKNOWN,
-                }
-            ],
-            "timestamp": SiteResult.utc_now_iso(),
-        }
+    log.error(
+        "Company crawl worker timed out or crashed",
+        extra={"search_id": search_id, "company_id": company_id},
+    )
+    return {
+        "search_id": search_id,
+        "company_id": company_id,
+        "jobs": [],
+        "discovered_companies": [],
+        "errors": [{"message": "Crawl worker timed out or crashed", "site": url, "error_type": ErrorType.UNKNOWN}],
+        "timestamp": SiteResult.utc_now_iso(),
+    }
 
 
 if __name__ == '__main__':
