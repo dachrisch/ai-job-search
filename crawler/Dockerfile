@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdbus-1-3 \
     libxss1 \
     libappindicator3-1 \
-    libindicator7 \
     fonts-dejavu \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
