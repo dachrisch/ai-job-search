@@ -10,6 +10,8 @@ import { SearchResult, AnalyzedPage } from '../job-sources/interfaces.js'
 import { validateAndExtractCompanies } from '../utils/company-discovery.js'
 import { calculateKeywordMatch, passesKeywordThreshold } from '../utils/job-matcher.js'
 import { SearchSourceManager } from '../search-sources/searxng-source.js'
+import { discoverJobsApi } from '../discovery/api-discoverer.js'
+import { fetchFromDiscoveredApi } from '../discovery/direct-fetcher.js'
 
 const jobSourceManager = new JobSourceManager()
 
@@ -283,23 +285,92 @@ export const eventHandlers = {
       console.log(`\n🤖 AGENT LOG - Crawl Company`)
       console.log(`   Crawling ${data.companyName} at ${data.url}`)
 
+      const session = await SearchSessionModel.findById(data.searchId)
+      if (!session) {
+        console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      const company = await CompanyModel.findById(data.companyId)
+
+      // Fast path: use previously discovered API endpoint
+      if (company?.discoveredApi) {
+        try {
+          const jobs = await fetchFromDiscoveredApi(
+            company.discoveredApi,
+            data.query,
+            data.companyName,
+            data.url
+          )
+          if (jobs.length > 0) {
+            console.log(`   ✅ DirectFetcher: ${jobs.length} jobs from cached endpoint`)
+            await addEvent('company_crawled', {
+              searchId: data.searchId,
+              companyId: data.companyId,
+              jobs,
+              discoveredCompanies: [],
+            })
+            return
+          }
+          // 0 jobs from known endpoint — API may have changed; clear and re-discover
+          console.log(`   ⚠️  DirectFetcher returned 0 jobs for ${data.companyName}; clearing discoveredApi`)
+          await CompanyModel.findByIdAndUpdate(data.companyId, { $unset: { discoveredApi: 1 } })
+        } catch (err: any) {
+          console.warn(`   ⚠️  DirectFetcher failed for ${data.companyName}: ${err.message}; clearing discoveredApi`)
+          await CompanyModel.findByIdAndUpdate(data.companyId, { $unset: { discoveredApi: 1 } })
+        }
+      }
+
+      // Normal crawler path
       const crawlerUrl = process.env.CRAWLER_SERVICE_URL || 'http://localhost:5000'
-      const response = await axios.post(`${crawlerUrl}/crawler/crawl-company`, {
-        searchId: data.searchId,
-        companyId: data.companyId,
-        url: data.url,
-        companyName: data.companyName,
-        query: data.query
-      }, { timeout: 60000 })
+      const response = await axios.post(
+        `${crawlerUrl}/crawler/crawl-company`,
+        {
+          searchId: data.searchId,
+          companyId: data.companyId,
+          url: data.url,
+          companyName: data.companyName,
+          query: data.query,
+        },
+        { timeout: 90000 }
+      )
 
       const result = response.data
       console.log(`   ✅ Crawled ${data.companyName}: ${result.jobs?.length || 0} jobs found`)
 
+      // Discovery path: Scrapy got 0 but Playwright captured API traffic
+      if (result.needsDiscovery && result.networkCapture?.length > 0) {
+        const config = await discoverJobsApi(
+          session.userId,
+          data.companyName,
+          data.url,
+          result.networkCapture
+        )
+        if (config) {
+          await CompanyModel.findByIdAndUpdate(data.companyId, { discoveredApi: config })
+          console.log(`   🔍 Discovered API for ${data.companyName} (${config.platform || 'custom'})`)
+          try {
+            const jobs = await fetchFromDiscoveredApi(config, data.query, data.companyName, data.url)
+            console.log(`   ✅ DirectFetcher post-discovery: ${jobs.length} jobs`)
+            await addEvent('company_crawled', {
+              searchId: data.searchId,
+              companyId: data.companyId,
+              jobs,
+              discoveredCompanies: [],
+            })
+            return
+          } catch (err: any) {
+            console.warn(`   ⚠️  DirectFetcher failed after discovery: ${err.message}`)
+          }
+        }
+      }
+
+      // Standard Scrapy result (or discovery failed — return whatever Scrapy found)
       await addEvent('company_crawled', {
         searchId: data.searchId,
         companyId: data.companyId,
         jobs: result.jobs || [],
-        discoveredCompanies: result.discoveredCompanies || []
+        discoveredCompanies: result.discoveredCompanies || [],
       })
     } catch (error: any) {
       console.error(`Error crawling company ${data.companyName}:`, error.message)

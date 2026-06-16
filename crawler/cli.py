@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import multiprocessing
 import socket
 import time
@@ -191,14 +192,31 @@ def _run_company_crawl_worker(
         if job is not None:
             validated_jobs.append(job)
 
-    queue.put({
-        "search_id": search_id,
-        "company_id": company_id,
-        "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
-        "discovered_companies": [],
-        "errors": [],
-        "timestamp": SiteResult.utc_now_iso(),
-    })
+    if not validated_jobs:
+        # Scrapy got nothing — try Playwright network capture for SPA detection
+        from job_crawler.network_interceptor import capture_job_api_calls
+        network_capture = asyncio.run(capture_job_api_calls(url))
+        queue.put({
+            "search_id": search_id,
+            "company_id": company_id,
+            "jobs": [],
+            "network_capture": [r.model_dump(by_alias=True) for r in network_capture],
+            "needs_discovery": len(network_capture) > 0,
+            "discovered_companies": [],
+            "errors": [],
+            "timestamp": SiteResult.utc_now_iso(),
+        })
+    else:
+        queue.put({
+            "search_id": search_id,
+            "company_id": company_id,
+            "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
+            "network_capture": [],
+            "needs_discovery": False,
+            "discovered_companies": [],
+            "errors": [],
+            "timestamp": SiteResult.utc_now_iso(),
+        })
 
 
 def _classify_exception(exc: BaseException) -> str:

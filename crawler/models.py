@@ -59,6 +59,21 @@ class CrawlerConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# CapturedRequest — one XHR/fetch call intercepted by Playwright
+# ---------------------------------------------------------------------------
+
+class CapturedRequest(BaseModel):
+    """A JSON API call intercepted by the Playwright network interceptor."""
+
+    model_config = _CAMEL_CONFIG
+
+    url: str = Field(description="Full URL of the intercepted request")
+    method: str = Field(description="HTTP method: GET or POST")
+    response_body: str = Field(description="JSON response body truncated to 3KB")
+    response_status: int = Field(description="HTTP response status code")
+
+
+# ---------------------------------------------------------------------------
 # CrawlerRequest — payload sent by the Node.js API to POST /crawler/scrape
 # ---------------------------------------------------------------------------
 
@@ -257,6 +272,14 @@ class CompanyCrawlResult(BaseModel):
         description="Other companies mentioned on this company's page"
     )
     errors: list[dict[str, Any]] = Field(default_factory=list)
+    network_capture: list[CapturedRequest] = Field(
+        default_factory=list,
+        description="XHR/fetch calls captured by Playwright when Scrapy returns 0 items"
+    )
+    needs_discovery: bool = Field(
+        default=False,
+        description="True when Playwright captured candidates and API asks Claude to discover the endpoint"
+    )
     timestamp: str = Field(default_factory=SiteResult.utc_now_iso)
 
 
