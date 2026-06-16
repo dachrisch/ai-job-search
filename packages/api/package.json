@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "NODE_OPTIONS=--max-old-space-size=6144 tsc",
     "test": "vitest",
     "start": "node dist/index.js",
     "seed": "tsx scripts/seed-db.ts"
