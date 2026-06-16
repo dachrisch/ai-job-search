@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.7](https://github.com/dachrisch/ai-job-search/compare/v0.2.6...v0.2.7) (2026-06-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency bcryptjs to v3 ([2dd20f2](https://github.com/dachrisch/ai-job-search/commit/2dd20f24491b25d5bc9362b428debec352db66b1))
+* **deps:** update dependency jsdom to v29 ([#32](https://github.com/dachrisch/ai-job-search/issues/32)) ([ce89a85](https://github.com/dachrisch/ai-job-search/commit/ce89a8544e680a836ba17377cd790b522655b1f2))
+* **deps:** update dependency node to v24 ([9a194ad](https://github.com/dachrisch/ai-job-search/commit/9a194ad189f78c714e272cd3847f5b7b54eb2196))
+* **deps:** update dependency node to v24 ([00a401d](https://github.com/dachrisch/ai-job-search/commit/00a401df5a6ff666b38f7585dd8e5a9ebdf81b49))
+* **deps:** update dependency npm-run-all2 to v9 ([7f44c15](https://github.com/dachrisch/ai-job-search/commit/7f44c15079721bde110cefd0a32547f9c50776a7))
+* **deps:** update dependency npm-run-all2 to v9 ([a93c37d](https://github.com/dachrisch/ai-job-search/commit/a93c37d70c42aecb84655001236f29bfb287207d))
+* **deps:** update dependency redis to v6 ([7dd15b5](https://github.com/dachrisch/ai-job-search/commit/7dd15b589375d74ee913bb6fcd61428c865fa031))
+* **deps:** update dependency redis to v6 ([847360c](https://github.com/dachrisch/ai-job-search/commit/847360c36535bbd7e11edfdcb7e3f18dc476f302))
+* **deps:** update testing-library monorepo to v16 ([#40](https://github.com/dachrisch/ai-job-search/issues/40)) ([5761445](https://github.com/dachrisch/ai-job-search/commit/5761445785b9c191681b0d06fde0060375a30fa6))
+
 ## [0.2.6](https://github.com/dachrisch/ai-job-search/compare/v0.2.5...v0.2.6) (2026-06-15)
 
 
