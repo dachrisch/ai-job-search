@@ -11,11 +11,13 @@ const mockClaudeMessage = vi.fn()
 // Mock axios and Anthropic before importing the module
 vi.mock('axios')
 vi.mock('@anthropic-ai/sdk', () => ({
-  default: vi.fn(() => ({
-    messages: {
-      create: mockClaudeMessage
+  default: vi.fn(function () {
+    return {
+      messages: {
+        create: mockClaudeMessage
+      }
     }
-  }))
+  })
 }))
 
 // Import after mocking and environment setup
