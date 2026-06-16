@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/dachrisch/ai-job-search/compare/v0.2.7...v0.3.0) (2026-06-16)
+
+
+### Features
+
+* SPA API discovery for company career pages ([#43](https://github.com/dachrisch/ai-job-search/issues/43)) ([6142b2e](https://github.com/dachrisch/ai-job-search/commit/6142b2e3507c6df0e67b2144679524164c0b4117))
+
 ## [0.2.7](https://github.com/dachrisch/ai-job-search/compare/v0.2.6...v0.2.7) (2026-06-15)
 
 
