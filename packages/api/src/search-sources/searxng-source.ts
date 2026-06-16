@@ -59,7 +59,7 @@ export class SearchSourceManager {
       })
 
       // Step 2: Filter aggregators
-      const filteredResults = searchResults.filter(
+      let filteredResults = searchResults.filter(
         r => !this.isJobAggregator(r.url)
       )
 
@@ -69,6 +69,20 @@ export class SearchSourceManager {
         })
         return []
       }
+
+      // ATS platforms (Greenhouse/Lever/Ashby) return individual job-posting
+      // URLs from search results. Normalize to the company's job-board root
+      // so the crawler lands on the full listings page instead of one post,
+      // and dedupe since multiple postings from the same company collapse
+      // to the same root URL.
+      const seenUrls = new Set<string>()
+      filteredResults = filteredResults
+        .map(r => ({ ...r, url: this.normalizeCompanyUrl(r.url) }))
+        .filter(r => {
+          if (seenUrls.has(r.url)) return false
+          seenUrls.add(r.url)
+          return true
+        })
 
       console.log('[discoverCompanies] After aggregator filter', {
         searchId,
@@ -117,22 +131,45 @@ export class SearchSourceManager {
     }
   }
 
+  // ATS platforms host per-company job postings under their own domain
+  // (e.g. job-boards.greenhouse.io/{company}/jobs/{id}). Generic "<query>
+  // careers" searches are dominated by aggregators (LinkedIn, Indeed), so we
+  // also search these ATS domains directly to surface individual companies.
+  private static readonly ATS_DOMAINS = [
+    'greenhouse.io',
+    'lever.co',
+    'jobs.ashbyhq.com'
+  ]
+
   private async searchSearXNG(query: string): Promise<SearXNGResult[]> {
-    const searchQuery = `${query} careers`
+    const searchQueries = [
+      `${query} careers`,
+      ...SearchSourceManager.ATS_DOMAINS.map(domain => `${query} jobs site:${domain}`)
+    ]
 
-    console.log('[searchSearXNG] Calling SearXNG', { query: searchQuery })
+    const resultLists = await Promise.all(
+      searchQueries.map(searchQuery => {
+        console.log('[searchSearXNG] Calling SearXNG', { query: searchQuery })
+        return axios
+          .get(`${this.searxngUrl}/search`, {
+            params: {
+              q: searchQuery,
+              tokens: this.searxngToken,
+              format: 'json',
+              limit: 30
+            },
+            timeout: 15000
+          })
+          .then(response => (response.data.results || []) as SearXNGResult[])
+      })
+    )
 
-    const response = await axios.get(`${this.searxngUrl}/search`, {
-      params: {
-        q: searchQuery,
-        tokens: this.searxngToken,
-        format: 'json',
-        limit: 30
-      },
-      timeout: 15000
+    const seen = new Set<string>()
+    return resultLists.flat().filter(result => {
+      if (seen.has(result.url)) return false
+      seen.add(result.url)
+      return true
     })
-
-    return (response.data.results || []) as SearXNGResult[]
   }
 
   private isJobAggregator(url: string): boolean {
@@ -148,7 +185,7 @@ export class SearchSourceManager {
     results: SearXNGResult[],
     userQuery: string
   ): Promise<ValidationResult[]> {
-    const topResults = results.slice(0, 20)
+    const topResults = results.slice(0, 40)
 
     const prompt = `You are an expert at identifying company career pages from search results.
 
@@ -180,7 +217,7 @@ Return exactly this JSON format:
 
     const response = await this.anthropic.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 2000,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }]
     })
 
@@ -197,6 +234,25 @@ Return exactly this JSON format:
     }
 
     return JSON.parse(match[0]) as ValidationResult[]
+  }
+
+  // Trims ATS job-posting URLs down to the company's job-board root, e.g.
+  // job-boards.greenhouse.io/getyourguide/jobs/123 -> .../getyourguide
+  private normalizeCompanyUrl(url: string): string {
+    try {
+      const u = new URL(url)
+      const isAtsHost = SearchSourceManager.ATS_DOMAINS.some(domain =>
+        u.hostname.endsWith(domain)
+      )
+      if (!isAtsHost) return url
+
+      const firstSegment = u.pathname.split('/').filter(Boolean)[0]
+      if (!firstSegment) return url
+
+      return `${u.protocol}//${u.host}/${firstSegment}`
+    } catch {
+      return url
+    }
   }
 
   private extractDomain(url: string): string {

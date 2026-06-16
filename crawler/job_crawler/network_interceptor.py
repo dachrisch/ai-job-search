@@ -20,6 +20,7 @@ if _crawler_root not in sys.path:
 
 from models import CapturedRequest
 from logger import get_logger
+from config import CHROMIUM_EXECUTABLE_PATH
 
 log = get_logger(__name__)
 
@@ -51,7 +52,7 @@ async def capture_job_api_calls(url: str) -> list[CapturedRequest]:
     captured: list[CapturedRequest] = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(executable_path=CHROMIUM_EXECUTABLE_PATH)
         page = await browser.new_page()
 
         async def on_response(response):

@@ -539,7 +539,8 @@ ${jobDetails}`
       let scores: any[] = []
       try {
         const response = await callClaude(session.userId, prompt)
-        const parsed = JSON.parse(response)
+        const match = response.match(/\{[\s\S]*\}/)
+        const parsed = JSON.parse(match ? match[0] : response)
         scores = parsed.scores || []
       } catch (error) {
         console.warn('Claude scoring failed, assigning default scores:', error)

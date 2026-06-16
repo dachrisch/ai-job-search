@@ -48,6 +48,8 @@ class GenericCareerPageSpider(BaseJobSpider):
         "section.job-item",
         "div.position",
         "div.opening",
+        "div[class*='job']",
+        "a[class*='job']",
     ]
 
     def __init__(self, urls=None, company_name=None, keywords=None, *args, **kwargs):
@@ -87,7 +89,8 @@ class GenericCareerPageSpider(BaseJobSpider):
             "h2::text",
             "h3::text",
             "a.title::text",
-            "[class*='title']::text",
+            "[class*='title']:not([class*='subtitle'])::text",
+            "[class*='title']:not([class*='subtitle']) a::text",
         )
 
         # Extract company name from page or use provided fallback
