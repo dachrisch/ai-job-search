@@ -4,8 +4,19 @@ vi.mock('../../claude/client.js', () => ({
   callClaude: vi.fn(),
 }))
 
-import { discoverJobsApi } from '../api-discoverer.js'
-import { callClaude } from '../../claude/client.js'
+// With the repo's vitest isolate:false setting, the module registry is shared across
+// test files within a worker. tests/handlers.test.ts auto-mocks claude/client.js too, so
+// a stale cached instance can otherwise leak in here depending on file/thread scheduling.
+// Force a fresh import bound to *our* mock every test.
+let discoverJobsApi: typeof import('../api-discoverer.js')['discoverJobsApi']
+let callClaude: typeof import('../../claude/client.js')['callClaude']
+
+beforeEach(async () => {
+  vi.resetModules()
+  ;({ discoverJobsApi } = await import('../api-discoverer.js'))
+  ;({ callClaude } = await import('../../claude/client.js'))
+  vi.clearAllMocks()
+})
 
 const CAPTURE = [
   {
@@ -17,8 +28,6 @@ const CAPTURE = [
 ]
 
 describe('discoverJobsApi', () => {
-  beforeEach(() => vi.clearAllMocks())
-
   it('returns config when Claude returns valid JSON with high confidence', async () => {
     const claudeResponse = JSON.stringify({
       endpoint: 'https://ibm.wd3.myworkdayjobs.com/api/jobs',
