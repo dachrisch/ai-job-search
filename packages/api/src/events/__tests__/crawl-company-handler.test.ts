@@ -10,12 +10,18 @@ vi.mock('axios', () => ({ default: { post: vi.fn() } }))
 vi.mock('../../discovery/api-discoverer.js', () => ({ discoverJobsApi: vi.fn() }))
 vi.mock('../../discovery/direct-fetcher.js', () => ({ fetchFromDiscoveredApi: vi.fn() }))
 
-import { eventHandlers } from '../handlers.js'
-import { SearchSessionModel, CompanyModel } from '../../db/models.js'
-import { addEvent } from '../../events/queue.js'
-import axios from 'axios'
-import { discoverJobsApi } from '../../discovery/api-discoverer.js'
-import { fetchFromDiscoveredApi } from '../../discovery/direct-fetcher.js'
+// With the repo's vitest isolate:false setting, the module registry is shared across
+// test files within a worker. tests/handlers.test.ts mocks these same module paths and
+// also imports handlers.js, so a stale cached instance (bound to its mocks) can otherwise
+// leak in here depending on file/thread scheduling. Force a fresh import bound to *our*
+// mocks every test.
+let eventHandlers: typeof import('../handlers.js')['eventHandlers']
+let SearchSessionModel: typeof import('../../db/models.js')['SearchSessionModel']
+let CompanyModel: typeof import('../../db/models.js')['CompanyModel']
+let addEvent: typeof import('../../events/queue.js')['addEvent']
+let axios: typeof import('axios')['default']
+let discoverJobsApi: typeof import('../../discovery/api-discoverer.js')['discoverJobsApi']
+let fetchFromDiscoveredApi: typeof import('../../discovery/direct-fetcher.js')['fetchFromDiscoveredApi']
 
 const MOCK_SESSION = { _id: 'sess1', userId: 'user1', query: 'engineer' }
 const MOCK_COMPANY_NO_API = { _id: 'co1', name: 'IBM', url: 'https://ibm.com/careers', discoveredApi: undefined }
@@ -34,7 +40,16 @@ const MOCK_COMPANY_WITH_API = {
 const MOCK_SSE = { broadcast: vi.fn() } as any
 const HANDLER_DATA = { searchId: 'sess1', companyId: 'co1', url: 'https://ibm.com/careers', companyName: 'IBM', query: 'engineer' }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(async () => {
+  vi.resetModules()
+  ;({ eventHandlers } = await import('../handlers.js'))
+  ;({ SearchSessionModel, CompanyModel } = await import('../../db/models.js'))
+  ;({ addEvent } = await import('../../events/queue.js'))
+  axios = (await import('axios')).default
+  ;({ discoverJobsApi } = await import('../../discovery/api-discoverer.js'))
+  ;({ fetchFromDiscoveredApi } = await import('../../discovery/direct-fetcher.js'))
+  vi.clearAllMocks()
+})
 
 describe('crawl_company handler', () => {
   describe('fast path: company has discoveredApi and returns jobs', () => {
