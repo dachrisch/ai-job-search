@@ -29,20 +29,6 @@ export interface Job {
   scoredVersion: number
 }
 
-export interface DiscoveredApiConfig {
-  endpoint: string
-  method: 'GET' | 'POST'
-  paramTemplate: Record<string, any>
-  fieldMapping: {
-    title: string
-    url: string
-    location: string
-    description: string
-  }
-  platform?: string
-  discoveredAt: Date
-}
-
 export interface Company {
   _id: string
   url: string
@@ -52,10 +38,9 @@ export interface Company {
   searchQuery: string
   discoveredFrom: 'searxng' | 'manual'
   confidence?: 'high' | 'medium' | 'low'
-  status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed'
+  status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed' | 'unsupported'
   crawlAttempts: number
   lastCrawlTime?: Date
-  discoveredApi?: DiscoveredApiConfig
   createdAt: Date
   updatedAt: Date
 }
