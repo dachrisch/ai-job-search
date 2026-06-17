@@ -18,7 +18,6 @@ _crawler_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _crawler_root not in sys.path:
     sys.path.insert(0, _crawler_root)
 
-from models import CapturedRequest
 from logger import get_logger
 from config import CHROMIUM_EXECUTABLE_PATH
 
@@ -42,14 +41,14 @@ def _looks_like_job_list(body: object) -> bool:
     return False
 
 
-async def capture_job_api_calls(url: str) -> list[CapturedRequest]:
+async def capture_job_api_calls(url: str) -> list[dict]:
     try:
         from playwright.async_api import async_playwright
     except ImportError:
         log.warning("playwright not installed; skipping network capture")
         return []
 
-    captured: list[CapturedRequest] = []
+    captured: list[dict] = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROMIUM_EXECUTABLE_PATH)
@@ -66,12 +65,12 @@ async def capture_job_api_calls(url: str) -> list[CapturedRequest]:
                 return
             if not _looks_like_job_list(body):
                 return
-            captured.append(CapturedRequest(
-                url=response.url,
-                method=response.request.method,
-                response_body=json.dumps(body)[:MAX_BODY_BYTES],
-                response_status=response.status,
-            ))
+            captured.append({
+                'url': response.url,
+                'method': response.request.method,
+                'response_body': json.dumps(body)[:MAX_BODY_BYTES],
+                'response_status': response.status,
+            })
 
         page.on('response', on_response)
 
