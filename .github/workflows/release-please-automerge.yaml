@@ -1,37 +1,85 @@
 name: Release Please Automerge
-
 on:
   pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - labeled
-
+    types: [opened, synchronized, labeled]
 permissions:
   contents: write
   pull-requests: write
-
+  checks: read
 concurrency:
   group: automerge-${{ github.event.pull_request.number }}
   cancel-in-progress: true
-
 jobs:
   automerge:
     runs-on: ubuntu-latest
     if: "${{ contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}"
     steps:
-      - name: Wait for checks to pass
+      - uses: actions/checkout@v4
+      - name: Check if patch-only release
+        id: version-check
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr checks "$PR_URL" --watch --interval 30 --required
-
-      - name: Automerge Release PR
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # Use 'gh' CLI to merge the PR.
-          # Using a PAT secret instead of GITHUB_TOKEN to ensure subsequent
-          # workflows (tagging/releasing) are triggered.
-          gh pr merge "$PR_URL" --auto --merge
+          NEW=$(echo "$PR_TITLE" | grep -oP '\d+\.\d+\.\d+$' || true)
+          CURRENT=$(jq -r '.version' package.json 2>/dev/null || true)
+          if [ -n "$NEW" ] && [ -n "$CURRENT" ] && \
+             [ "$(echo "$NEW" | cut -d. -f1-2)" = "$(echo "$CURRENT" | cut -d. -f1-2)" ]; then
+            echo "patch_only=true" >> $GITHUB_OUTPUT
+          else
+            echo "patch_only=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Wait for all checks to pass
+        if: steps.version-check.outputs.patch_only == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Waiting for all checks to complete..."
+
+          # Poll for up to 10 minutes (60 attempts × 10 seconds)
+          for attempt in {1..60}; do
+            echo "Attempt $attempt/60 - Checking PR status..."
+
+            COMMIT_SHA=$(gh api repos/$REPO/pulls/$PR_NUMBER --jq '.head.sha')
+            echo "Checking commit: $COMMIT_SHA"
+
+            CHECKS=$(gh api repos/$REPO/commits/$COMMIT_SHA/check-runs 2>/dev/null || echo '{"check_runs":[]}')
+
+            # Exclude this automerge workflow from the checks we wait on
+            CHECKS_JSON=$(echo "$CHECKS" | jq -s \
+              '.[] | .check_runs[]? | select(.name != "automerge") | {name: .name, conclusion: .conclusion, status: .status}' \
+              2>/dev/null | jq -s '.' 2>/dev/null || echo '[]')
+
+            TOTAL_CHECKS=$(echo "$CHECKS_JSON" | jq 'length')
+            SUCCESSFUL=$(echo "$CHECKS_JSON" | jq '[.[] | select(.conclusion == "success")] | length')
+            FAILED=$(echo "$CHECKS_JSON" | jq '[.[] | select(.conclusion == "failure")] | length')
+            PENDING=$(echo "$CHECKS_JSON" | jq '[.[] | select(.status != "completed")] | length')
+
+            echo "Checks: $SUCCESSFUL passed, $FAILED failed, $PENDING pending (total: $TOTAL_CHECKS)"
+
+            if [ "$FAILED" -gt 0 ]; then
+              echo "✗ Some checks failed - will not automerge"
+              gh api repos/$REPO/pulls/$PR_NUMBER/reviews -X POST \
+                -f event=COMMENT \
+                -f body="Automerge blocked: Some checks failed. Please review and fix before retrying." || true
+              exit 1
+            fi
+
+            if [ "$TOTAL_CHECKS" -gt 0 ] && [ "$PENDING" -eq 0 ]; then
+              echo "✓ All checks passed! Proceeding with automerge."
+              exit 0
+            fi
+
+            echo "Waiting... (sleeping 10 seconds)"
+            sleep 10
+          done
+
+          echo "✗ Timeout: Checks did not complete within 10 minutes"
+          exit 1
+      - name: Automerge patch release
+        if: steps.version-check.outputs.patch_only == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --auto --merge
