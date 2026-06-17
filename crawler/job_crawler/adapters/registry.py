@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from job_crawler.adapters.base import CareerSiteAdapter
+from job_crawler.adapters.pythonjobs import PythonJobsAdapter
 
-ADAPTER_REGISTRY: list[CareerSiteAdapter] = []
+ADAPTER_REGISTRY: list[CareerSiteAdapter] = [
+    PythonJobsAdapter(),
+]
 
 
 def find_adapter(url: str) -> CareerSiteAdapter | None:
