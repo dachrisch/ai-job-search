@@ -47,7 +47,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
     it('should discover companies via SearchSourceManager and emit companies_discovered event', async () => {
       // ARRANGE: Create a search session
       const session = await SearchSessionModel.create({
-        userId: 'test-user-123',
+        userId: '000000000000000000000001',
         query: 'senior engineer',
         status: 'running',
         iterationCount: 0,
@@ -86,7 +86,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
       await eventHandlers.search_started(
         {
           searchId: session._id.toString(),
-          userId: 'test-user-123',
+          userId: '000000000000000000000001',
           query: 'senior engineer',
         },
         sseManager
@@ -119,7 +119,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
     it('should fail gracefully when no companies are discovered', async () => {
       // ARRANGE: Create a search session
       const session = await SearchSessionModel.create({
-        userId: 'test-user-456',
+        userId: '000000000000000000000002',
         query: 'nonexistent company xyz',
         status: 'running',
         iterationCount: 0,
@@ -141,7 +141,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
       await eventHandlers.search_started(
         {
           searchId: session._id.toString(),
-          userId: 'test-user-456',
+          userId: '000000000000000000000002',
           query: 'nonexistent company xyz',
         },
         sseManager
@@ -162,7 +162,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
     it('should store discovered companies and emit companies_queued_for_crawl event', async () => {
       // ARRANGE: Create a search session
       const session = await SearchSessionModel.create({
-        userId: 'test-user-789',
+        userId: '000000000000000000000003',
         query: 'backend developer',
         status: 'running',
         iterationCount: 0,
@@ -233,7 +233,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
     it('should batch companies for crawling (max 10 per batch)', async () => {
       // ARRANGE: Create a search session
       const session = await SearchSessionModel.create({
-        userId: 'test-user-batch',
+        userId: '000000000000000000000004',
         query: 'software engineer',
         status: 'running',
         iterationCount: 0,
@@ -280,7 +280,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
     it('should validate complete discovery → storage → queuing pipeline', async () => {
       // ARRANGE: Create a search session
       const session = await SearchSessionModel.create({
-        userId: 'test-user-full',
+        userId: '000000000000000000000005',
         query: 'devops engineer',
         status: 'running',
         iterationCount: 0,
@@ -319,7 +319,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
       await eventHandlers.search_started(
         {
           searchId: session._id.toString(),
-          userId: 'test-user-full',
+          userId: '000000000000000000000005',
           query: 'devops engineer',
         },
         sseManager

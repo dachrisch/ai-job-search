@@ -185,7 +185,7 @@ export class SearchSourceManager {
     results: SearXNGResult[],
     userQuery: string
   ): Promise<ValidationResult[]> {
-    const topResults = results.slice(0, 40)
+    const topResults = results.slice(0, 20)
 
     const prompt = `You are an expert at identifying company career pages from search results.
 

@@ -34,6 +34,9 @@ describe('SearchSourceManager', () => {
 
     manager = new SearchSourceManager('test-token')
     vi.clearAllMocks()
+    // searchSearXNG makes 4 parallel axios.get calls (1 "careers" + 3 ATS domains).
+    // Set a default so calls 2-4 return empty instead of undefined.
+    vi.mocked(axios.get).mockResolvedValue({ data: { results: [] } })
   })
 
   afterEach(() => {
