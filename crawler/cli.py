@@ -11,6 +11,7 @@ from job_crawler.spiders.linkedin_spider import LinkedInSpider
 from job_crawler.spiders.indeed_spider import IndeedSpider
 from job_crawler.spiders.glassdoor_spider import GlassdoorSpider
 from models import CrawlerConfig, SiteResult, scrapy_item_to_job_data
+from job_crawler.adapters.registry import find_adapter
 from logger import get_logger
 from resilience import (
     CircuitBreaker,
@@ -47,6 +48,35 @@ def _resolve_spider(domain: str) -> type:
         if pattern in domain:
             return spider_cls
     return GenericJobSpider
+
+
+def _try_adapter(url: str, keywords: str) -> list[dict] | None:
+    """
+    Attempt to fetch jobs via a registered adapter for url.
+
+    Returns a list of validated, camelCase job dicts if an adapter matched
+    and produced at least one valid job. Returns None if no adapter matched,
+    the adapter raised, or none of its jobs passed JobData validation — in
+    all of these cases the caller should fall back to the generic spider.
+    """
+    adapter = find_adapter(url)
+    if adapter is None:
+        return None
+
+    try:
+        raw_jobs = adapter.run(url, keywords)
+    except Exception as exc:
+        log.warning(
+            "Adapter failed; falling back to generic spider",
+            extra={"url": url, "adapter": type(adapter).__name__, "error": str(exc)},
+        )
+        return None
+
+    validated = [job for job in (scrapy_item_to_job_data(raw) for raw in raw_jobs) if job is not None]
+    if not validated:
+        return None
+
+    return [job.model_dump(by_alias=True) for job in validated]
 
 
 # Global list to collect jobs from pipeline (reset before each crawl)
