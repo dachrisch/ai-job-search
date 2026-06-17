@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.1](https://github.com/dachrisch/ai-job-search/compare/v0.4.0...v0.4.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **ci:** prevent automerge deadlock by watching only required checks ([50addaf](https://github.com/dachrisch/ai-job-search/commit/50addaf96b3b67f278bf5f80da354324e19def3e))
+* **ci:** replace blocking gh pr checks with API polling to prevent deadlock ([2006e6d](https://github.com/dachrisch/ai-job-search/commit/2006e6d8aa9b256a59f6a9939761ff21d3fcf7f2))
+* **deps:** update dependency pytest to v8.4.2 ([ff9d55f](https://github.com/dachrisch/ai-job-search/commit/ff9d55f7526c59ed95bd80e4fa9007e5a887a792))
+* **deps:** update vitest monorepo to v4 ([d163c55](https://github.com/dachrisch/ai-job-search/commit/d163c55721e5d3bc161380d0abc01f3ab9530130))
+
 ## [0.4.0](https://github.com/dachrisch/ai-job-search/compare/v0.3.0...v0.4.0) (2026-06-17)
 
 
