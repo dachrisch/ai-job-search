@@ -102,15 +102,6 @@ DEFAULT_USER_AGENT: str = USER_AGENTS[0]
 REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # ---------------------------------------------------------------------------
-# Playwright (SPA network capture)
-# ---------------------------------------------------------------------------
-
-# Path to a system Chromium/Chrome binary. Playwright's bundled browser
-# download doesn't support every OS; set this to reuse an already-installed
-# browser (e.g. /usr/bin/google-chrome) instead of Playwright's own download.
-CHROMIUM_EXECUTABLE_PATH: str | None = os.getenv("CHROMIUM_EXECUTABLE_PATH") or None
-
-# ---------------------------------------------------------------------------
 # Node.js API integration
 # ---------------------------------------------------------------------------
 
