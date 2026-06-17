@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import multiprocessing
 import socket
 import time
@@ -193,10 +192,22 @@ def _run_company_crawl_worker(
     global collected_jobs
     collected_jobs = []
 
+    adapter_jobs = _try_adapter(url, keywords)
+    if adapter_jobs is not None:
+        queue.put({
+            "search_id": search_id,
+            "company_id": company_id,
+            "jobs": adapter_jobs,
+            "unsupported": False,
+            "discovered_companies": [],
+            "errors": [],
+            "timestamp": SiteResult.utc_now_iso(),
+        })
+        return
+
     from scrapy.crawler import CrawlerProcess
     from scrapy.utils.project import get_project_settings
     from job_crawler.spiders.generic_career_spider import GenericCareerPageSpider
-    from models import SiteResult, scrapy_item_to_job_data
     import config as _cfg
 
     settings = get_project_settings()
@@ -222,31 +233,15 @@ def _run_company_crawl_worker(
         if job is not None:
             validated_jobs.append(job)
 
-    if not validated_jobs:
-        # Scrapy got nothing — try Playwright network capture for SPA detection
-        from job_crawler.network_interceptor import capture_job_api_calls
-        network_capture = asyncio.run(capture_job_api_calls(url))
-        queue.put({
-            "search_id": search_id,
-            "company_id": company_id,
-            "jobs": [],
-            "network_capture": [r.model_dump(by_alias=True) for r in network_capture],
-            "needs_discovery": len(network_capture) > 0,
-            "discovered_companies": [],
-            "errors": [],
-            "timestamp": SiteResult.utc_now_iso(),
-        })
-    else:
-        queue.put({
-            "search_id": search_id,
-            "company_id": company_id,
-            "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
-            "network_capture": [],
-            "needs_discovery": False,
-            "discovered_companies": [],
-            "errors": [],
-            "timestamp": SiteResult.utc_now_iso(),
-        })
+    queue.put({
+        "search_id": search_id,
+        "company_id": company_id,
+        "jobs": [j.model_dump(by_alias=True) for j in validated_jobs],
+        "unsupported": len(validated_jobs) == 0,
+        "discovered_companies": [],
+        "errors": [],
+        "timestamp": SiteResult.utc_now_iso(),
+    })
 
 
 def _classify_exception(exc: BaseException) -> str:
