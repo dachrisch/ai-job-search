@@ -19,10 +19,10 @@
     "@vitejs/plugin-react": "^6.0.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/jest-dom": "^6.1.5",
-    "@vitest/ui": "^1.0.0",
+    "@vitest/ui": "^4.0.0",
     "jsdom": "^29.0.0",
     "typescript": "^6.0.0",
     "vite": "^8.0.14",
-    "vitest": "^1.0.0"
+    "vitest": "^4.0.0"
   }
 }

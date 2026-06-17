@@ -83,10 +83,11 @@ describe('Event Handlers', () => {
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
       vi.mocked(SearchSourceManager).mockImplementation(
-        () =>
-          ({
+        function () {
+          return {
             discoverCompanies: vi.fn().mockResolvedValue(discoveredCompanies),
-          }) as any
+          } as any
+        }
       )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
@@ -111,10 +112,11 @@ describe('Event Handlers', () => {
     it('should emit search_failed when no companies discovered', async () => {
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
       vi.mocked(SearchSourceManager).mockImplementation(
-        () =>
-          ({
+        function () {
+          return {
             discoverCompanies: vi.fn().mockResolvedValue([]),
-          }) as any
+          } as any
+        }
       )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
@@ -143,10 +145,11 @@ describe('Event Handlers', () => {
     it('should emit search_failed on discovery error', async () => {
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
       vi.mocked(SearchSourceManager).mockImplementation(
-        () =>
-          ({
+        function () {
+          return {
             discoverCompanies: vi.fn().mockRejectedValue(new Error('Discovery failed')),
-          }) as any
+          } as any
+        }
       )
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
