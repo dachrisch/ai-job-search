@@ -24,7 +24,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr checks "$PR_URL" --watch --interval 30
+        run: gh pr checks "$PR_URL" --watch --interval 30 --required
 
       - name: Automerge Release PR
         env:
