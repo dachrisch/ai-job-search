@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/dachrisch/ai-job-search/compare/v0.3.0...v0.4.0) (2026-06-17)
+
+
+### Features
+
+* **api:** add unsupported to Company status enum, drop discoveredApi schema ([1bc6767](https://github.com/dachrisch/ai-job-search/commit/1bc67677bc8ff49368d5a20dcb31e88f0d1aea5c))
+* **api:** simplify crawl_company, tag unsupported companies ([cf696cb](https://github.com/dachrisch/ai-job-search/commit/cf696cb34409323802ac6706692638db6a685771))
+* **crawler:** add _try_adapter dispatch helper ([3b111f8](https://github.com/dachrisch/ai-job-search/commit/3b111f8f0c1ab6f9628ee325a0ebbdb0f481a840))
+* **crawler:** add adapter registry with ordered URL matching ([54eac0d](https://github.com/dachrisch/ai-job-search/commit/54eac0de31b27a0f17641d8afb29edee90513799))
+* **crawler:** add CareerSiteAdapter base class ([fe390f0](https://github.com/dachrisch/ai-job-search/commit/fe390f06d00d46670979aed1f7a7b946ceb2e0b4))
+* **crawler:** dispatch to adapter registry before generic spider ([20849de](https://github.com/dachrisch/ai-job-search/commit/20849deddbc273497b28be3b840e538a19f1c248))
+* **shared:** add unsupported Company status, remove DiscoveredApiConfig ([6d6c322](https://github.com/dachrisch/ai-job-search/commit/6d6c322aa79031b7e46f9b7919dd3d58924548a0))
+
+
+### Bug Fixes
+
+* **api:** fix pre-existing test failures in search-sources and discovery-integration ([1f9082d](https://github.com/dachrisch/ai-job-search/commit/1f9082d5b1ae404e9de9c782d52f1c1e3f319034))
+* surface real job listings via ATS-targeted SearXNG queries and crawler selector fixes ([134c7c8](https://github.com/dachrisch/ai-job-search/commit/134c7c8047727bf6e4e8a0865cbce179d0c7f4f0))
+
 ## [0.3.0](https://github.com/dachrisch/ai-job-search/compare/v0.2.7...v0.3.0) (2026-06-16)
 
 
