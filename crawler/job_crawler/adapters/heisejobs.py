@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import re
-
 import requests
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup
 
 from job_crawler.adapters.base import CareerSiteAdapter, AuthContext, RawPage, JobDict, USER_AGENT
 
 _BASE = 'https://jobs.heise.de'
-_JOBS_URL = f'{_BASE}/'
+_SEARCH_URL = f'{_BASE}/search'
 
 
 class HeiseJobsAdapter(CareerSiteAdapter):
-    """Scrapes the Heise Jobs board via its server-rendered HTML listing."""
+    """Scrapes the Heise Jobs board via its server-rendered search results page."""
 
     def can_handle(self, url: str) -> bool:
         return 'jobs.heise.de' in url
@@ -22,32 +20,35 @@ class HeiseJobsAdapter(CareerSiteAdapter):
     def fetch_page(
         self, url: str, keywords: str, auth_context: AuthContext, page_token: str | None
     ) -> RawPage:
-        params = {'page': page_token} if page_token else {}
         response = requests.get(
-            _JOBS_URL,
-            params=params,
+            _SEARCH_URL,
+            params={'q': keywords or ''},
             headers={'User-Agent': USER_AGENT},
             timeout=30,
         )
         response.raise_for_status()
-        return {'html': response.text, 'source_url': _JOBS_URL}
+        return {'html': response.text, 'source_url': response.url}
 
     def parse_jobs(self, raw_page: RawPage) -> tuple[list[JobDict], str | None]:
         soup = BeautifulSoup(raw_page['html'], 'html.parser')
         source_url = raw_page['source_url']
         jobs: list[JobDict] = []
 
-        container = soup.find('ul', id='jobOffers')
-        for li in (container.find_all('li') if container else []):
-            link = li.find('a', href=lambda h: h and '/job?id=' in h)
-            if not link:
-                continue
-            h3 = link.find('h3')
-            if not h3:
+        for li in soup.select('li[data-testid^="joblist-job-"]'):
+            job_id = li.get('data-id')
+            if not job_id:
                 continue
 
-            title = h3.get_text(strip=True)
-            job_url = _BASE + link['href']
+            h2 = li.find('h2')
+            if not h2:
+                continue
+
+            badge = h2.find('span', attrs={'data-testid': 'top-badge'})
+            if badge:
+                badge.decompose()
+            title = h2.get_text(strip=True)
+
+            job_url = f'{_BASE}/job?id={job_id}'
 
             img = li.find('img')
             company = ''
@@ -56,12 +57,12 @@ class HeiseJobsAdapter(CareerSiteAdapter):
                 if alt.startswith('Logo: '):
                     company = alt[6:].strip()
 
-            # Direct text node children of li (not inside nested elements)
-            location_texts = [
-                c.strip() for c in li.children
-                if isinstance(c, NavigableString) and c.strip()
-            ]
-            location = location_texts[-1] if location_texts else ''
+            location = ''
+            loc_div = li.select_one('div.loc')
+            if loc_div:
+                loc_span = loc_div.find('span')
+                if loc_span:
+                    location = loc_span.get_text(strip=True)
 
             description = f'{title} at {company}. Location: {location} | {source_url} | jobs.heise.de'
 
@@ -74,11 +75,4 @@ class HeiseJobsAdapter(CareerSiteAdapter):
                 'source_url': source_url,
             })
 
-        next_token: str | None = None
-        next_el = soup.find('a', rel=lambda r: 'next' in (r if isinstance(r, list) else [r]))
-        if next_el and next_el.get('href'):
-            m = re.search(r'[?&]page=(\d+)', next_el['href'])
-            if m:
-                next_token = m.group(1)
-
-        return jobs, next_token
+        return jobs, None

@@ -17,7 +17,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
 
   beforeAll(async () => {
     // Use the test MongoDB instance on servyy-test.lxd (skipped in CI)
-    mongoUri = process.env.MONGODB_URI || 'mongodb://10.185.182.205:27017/job_search_test'
+    mongoUri = process.env.MONGODB_URI || 'mongodb://10.185.182.250:27017/job_search_test'
     console.log(`Connecting to MongoDB at ${mongoUri}`)
     await connect(mongoUri)
   })
