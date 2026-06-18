@@ -90,6 +90,16 @@ def test_fetch_page_passes_page_param_when_given(adapter):
         params = mock_get.call_args[1].get('params', {})
         assert params.get('page') == '2'
 
+def test_fetch_page_sends_user_agent_header(adapter):
+    mock_resp = MagicMock()
+    mock_resp.text = HEISE_HTML
+    mock_resp.raise_for_status.return_value = None
+    with patch('job_crawler.adapters.heisejobs.requests.get', return_value=mock_resp) as mock_get:
+        adapter.fetch_page('https://jobs.heise.de/', 'python', {}, None)
+        headers = mock_get.call_args[1].get('headers', {})
+        assert 'User-Agent' in headers
+        assert headers['User-Agent']  # non-empty
+
 
 # --- parse_jobs ---
 
