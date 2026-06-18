@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.0](https://github.com/dachrisch/ai-job-search/compare/v0.4.1...v0.5.0) (2026-06-18)
+
+
+### Features
+
+* **crawler:** add DjangoFoundationAdapter for foundation/jobs board ([63aed4b](https://github.com/dachrisch/ai-job-search/commit/63aed4b79cb3ce4e0c9372adb1a6657061db2ab0))
+* **crawler:** add GreenhouseAdapter with public JSON API ([2f13bf9](https://github.com/dachrisch/ai-job-search/commit/2f13bf905c17a1bb82e1c836c03e6298f3ebc011))
+* **crawler:** add HeiseJobsAdapter for jobs.heise.de board ([eb4e121](https://github.com/dachrisch/ai-job-search/commit/eb4e121b3d28679c39302b490142e9c58ff622e6))
+* **crawler:** add LeverAdapter with public postings API ([aa05e5e](https://github.com/dachrisch/ai-job-search/commit/aa05e5ed52536d2d2be251aacf863f5fb4750e4b))
+* **crawler:** add SmartRecruitersAdapter with offset pagination ([5bf7faa](https://github.com/dachrisch/ai-job-search/commit/5bf7faada426e79dd6123450eebd83967b542523))
+* **crawler:** add StepStoneAdapter for stepstone.de job board ([3006a42](https://github.com/dachrisch/ai-job-search/commit/3006a42877a122b54d0f9c2ec7979d0ff2559e88))
+* **crawler:** add top-5 career-site adapters (Greenhouse, Lever, SmartRecruiters, DjangoFoundation, HeiseJobs) ([cc469e8](https://github.com/dachrisch/ai-job-search/commit/cc469e80dcb9e4c2814167aaea371194c0ae4ddf))
+* **crawler:** register Greenhouse, Lever, SmartRecruiters, DjangoFoundation, HeiseJobs adapters ([9d991d5](https://github.com/dachrisch/ai-job-search/commit/9d991d5496ca8dfc77271e0942cc12e5e8ec53eb))
+
+
+### Bug Fixes
+
+* **crawler:** guarantee 50-char description and add field extraction tests for DjangoFoundationAdapter ([c3d7cc6](https://github.com/dachrisch/ai-job-search/commit/c3d7cc69118ac78da0c8a3498caa779192c0255f))
+* **crawler:** guarantee 50-char description and add slug validation test for SmartRecruitersAdapter ([f5b62c4](https://github.com/dachrisch/ai-job-search/commit/f5b62c471a0261f543bb37fe319d9fe2f5137da2))
+* **crawler:** guard department name access and empty slug in GreenhouseAdapter ([fcd31b6](https://github.com/dachrisch/ai-job-search/commit/fcd31b6b90aede83db72e4a56ff282f2a5638fcd))
+* **crawler:** reject CTA false positives and deduplicate job URLs in generic spider ([fe3db87](https://github.com/dachrisch/ai-job-search/commit/fe3db875ba3bbd1923cbe8f12694eafe44ab03de))
+* **crawler:** scope HeiseJobs li scan to #jobOffers and document DjangoFoundation url param ([8329fe0](https://github.com/dachrisch/ai-job-search/commit/8329fe096a009f6d2df214c81b942ae0eb4d2a78))
+* **crawler:** spider false positive fixes + StepStoneAdapter ([8d0a171](https://github.com/dachrisch/ai-job-search/commit/8d0a171b5b624d8cfa48a9452ec09c71ddb76d72))
+* **crawler:** store team in JobDict and add slug validation test for LeverAdapter ([02d51c3](https://github.com/dachrisch/ai-job-search/commit/02d51c3b7d32038f908543d9d5924fbd2329d102))
+* **crawler:** update HeiseJobsAdapter for site redesign ([36d98f8](https://github.com/dachrisch/ai-job-search/commit/36d98f8c06f604c70464a8bb234f242b73abb424))
+* **crawler:** update HeiseJobsAdapter for site redesign ([348d8c1](https://github.com/dachrisch/ai-job-search/commit/348d8c1e0b5762c153f41fec3563854ffe53bd58))
+
 ## [0.4.1](https://github.com/dachrisch/ai-job-search/compare/v0.4.0...v0.4.1) (2026-06-17)
 
 
