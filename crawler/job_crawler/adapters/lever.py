@@ -66,6 +66,7 @@ class LeverAdapter(CareerSiteAdapter):
             jobs.append({
                 'title': title,
                 'company': slug,
+                'team': team,
                 'description': description,
                 'url': job_url,
                 'location': location,

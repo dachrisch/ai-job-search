@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import pytest
 from unittest.mock import patch, MagicMock
-from job_crawler.adapters.lever import LeverAdapter
+from job_crawler.adapters.lever import LeverAdapter, _company_slug
 
 LEVER_RESPONSE = [
     {
@@ -41,6 +41,13 @@ def test_handles_lever_posting_url(adapter):
 def test_does_not_handle_other_domains(adapter):
     assert not adapter.can_handle('https://boards.greenhouse.io/mozilla')
     assert not adapter.can_handle('https://example.com/careers')
+
+
+# --- _company_slug ---
+
+def test_company_slug_raises_for_bare_domain():
+    with pytest.raises(ValueError):
+        _company_slug('https://jobs.lever.co')
 
 
 # --- fetch_page ---
