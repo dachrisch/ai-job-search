@@ -37,7 +37,8 @@ class HeiseJobsAdapter(CareerSiteAdapter):
         source_url = raw_page['source_url']
         jobs: list[JobDict] = []
 
-        for li in soup.find_all('li'):
+        container = soup.find('ul', id='jobOffers')
+        for li in (container.find_all('li') if container else []):
             link = li.find('a', href=lambda h: h and '/job?id=' in h)
             if not link:
                 continue

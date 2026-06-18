@@ -20,6 +20,7 @@ class DjangoFoundationAdapter(CareerSiteAdapter):
     def fetch_page(
         self, url: str, keywords: str, auth_context: AuthContext, page_token: str | None
     ) -> RawPage:
+        # url is unused; the Django Foundation has a single jobs listing page.
         response = requests.get(
             _JOBS_URL,
             headers={'User-Agent': USER_AGENT},
