@@ -80,6 +80,16 @@ def test_parse_jobs_extracts_url(adapter):
     jobs, _ = adapter.parse_jobs(raw)
     assert jobs[0]['url'] == 'https://www.djangoproject.com/foundation/jobs/executive-director/'
 
+def test_parse_jobs_extracts_company(adapter):
+    raw = {'html': JOBS_HTML, 'source_url': 'https://www.djangoproject.com/foundation/jobs/'}
+    jobs, _ = adapter.parse_jobs(raw)
+    assert jobs[0]['company'] == 'Django Software Foundation'
+
+def test_parse_jobs_extracts_location(adapter):
+    raw = {'html': JOBS_HTML, 'source_url': 'https://www.djangoproject.com/foundation/jobs/'}
+    jobs, _ = adapter.parse_jobs(raw)
+    assert jobs[0]['location'] == 'Remote'
+
 def test_parse_jobs_sets_source_url(adapter):
     raw = {'html': JOBS_HTML, 'source_url': 'https://www.djangoproject.com/foundation/jobs/'}
     jobs, _ = adapter.parse_jobs(raw)

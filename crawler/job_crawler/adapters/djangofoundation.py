@@ -51,7 +51,7 @@ class DjangoFoundationAdapter(CareerSiteAdapter):
             company = parts[0] if len(parts) >= 1 else ''
             location = parts[1] if len(parts) >= 2 else ''
 
-            description = f'{title} at {company}. Location: {location} | djangoproject.com/foundation/jobs'
+            description = f'{title} at {company}. Location: {location} | {source_url} | djangoproject.com/foundation/jobs'
 
             jobs.append({
                 'title': title,
