@@ -68,9 +68,9 @@ Direct HTTP calls to `POST /crawler/crawl-company` (port 8000) with query `"Pyth
 | #10 | DjangoFoundationAdapter | ✅ **Done** | 14 tests. PR #52. Selectors based on Django template conventions — verify live when jobs are posted. |
 | #15 | HeiseJobsAdapter | ✅ **Done** | 16 tests. PR #52. `#jobOffers` scoped, `rel=next` pagination. |
 | #4 | WorkdayAdapter | ⬜ Pending | High effort — no public API |
-| #12 | StepStoneAdapter | ⬜ Pending | False positive fix needed |
+| #12 | StepStoneAdapter | ✅ **Done** | 18 tests. `article[data-at="job-item"]` selector, `rel=next` pagination, full description snippet extraction. |
 | #13 | XINGJobsAdapter | ⬜ Pending | SPA |
-| #16 | Generic spider fix | ⬜ Pending | False positive cleanup |
+| #16 | Generic spider fix | ✅ **Done** | PR feat/spider-false-positive-fixes. `url==source_url` guard + URL dedup in base spider. 5 tests. |
 
 ### Personio caveat — URL scheme migration
 
@@ -97,13 +97,13 @@ The `*.jobs.personio.de` subdomain scheme has been partially retired. Most known
 
 | Task | Platform | Notes |
 |---|---|---|
-| #14 | **Personio** | ✅ XML adapter implemented for `*.jobs.personio.de`. ⚠️ URL scheme migration to `personio.com` needs investigation — many customers now redirect. |
+| #14 | **Personio** | ✅ XML adapter implemented for `*.jobs.personio.de` and `*.jobs.personio.com`. Investigation complete (2026-06-18): companies that 307-redirect to bare `personio.com` have left the hosted-board scheme; no new public API exists on personio.com. Adapter is correct as-is. |
 
 ### German job boards
 
 | Task | Site | Notes |
 |---|---|---|
-| #12 | **StepStone** (stepstone.de) | Dominant DE job board; currently returns false positive — needs proper adapter |
+| #12 | **StepStone** (stepstone.de) | ✅ Done — feat/spider-false-positive-fixes. `article[data-at="job-item"]` selector, 25 jobs/page, `rel=next` pagination. |
 | #13 | **XING Jobs** (xing.com/jobs) | Major DACH professional network; SPA, needs investigation |
 | #15 | **Heise Jobs** (jobs.heise.de) | ✅ Done — PR #52 |
 
@@ -117,28 +117,30 @@ The `*.jobs.personio.de` subdomain scheme has been partially retired. Most known
 
 | Task | Companies | Notes |
 |---|---|---|
-| #11 | Shopify, GitHub, Stripe, HashiCorp | Investigate which ATS each uses — if Greenhouse/Lever, covered for free by ATS adapters |
-| #6 | Mozilla | Likely uses Greenhouse internally |
-| #7 | Canonical | Custom board |
-| #8 | JetBrains | Custom board |
-| #9 | Elastic | Likely uses Greenhouse internally |
+| #11 | Shopify, GitHub, Stripe, HashiCorp | Investigated (2026-06-18): **Stripe** → Greenhouse `job-boards.greenhouse.io/stripe` ✅ already covered. **Shopify** → Ashby embedded SPA (no public API for their custom domain). **GitHub** → iCIMS on `www.github.careers` (no public API). **HashiCorp** → IBM-acquired, 429 blocked. |
+| #6 | Mozilla | Custom SPA, no ATS API found. Not Greenhouse/Lever. Needs custom adapter or browser-based crawl. |
+| #7 | Canonical | Custom board — needs investigation |
+| #8 | JetBrains | Custom board — needs investigation |
+| #9 | Elastic | Uses **Workday** (not Greenhouse). Same as #4 — high effort, deferred. |
 
 ### Spider quality
 
 | Task | Issue |
 |---|---|
-| #16 | Generic spider false positives: Monster.de (CTA matched as job), Trivago (real job duplicated) — tighten selector validation and add URL-based dedup |
+| #16 | Generic spider false positives fixed in feat/spider-false-positive-fixes: `url==source_url` guard (Monster.de CTA) + URL dedup in base spider (Trivago duplicate). 5 tests. ✅ |
 
 ---
 
-## Recommended Next Steps (as of 2026-06-18)
+## Recommended Next Steps (as of 2026-06-18, updated after session 2)
 
 Completed in PR #52: Greenhouse, Lever, SmartRecruiters, DjangoFoundation, HeiseJobs.
 
+Completed in feat/spider-false-positive-fixes: StepStone, spider false positive fixes, Personio investigation.
+
 Remaining backlog in priority order:
 
-1. **Personio URL investigation** — confirm new `personio.com` URL scheme before closing #14
-2. **Spider fix (#16)** — false positives on Monster.de / Trivago — quick hygiene fix
-3. **StepStone (#12)** — biggest German board; currently returns false positive
-4. **Company ATS investigation (#11)** — Shopify, GitHub, Stripe, HashiCorp likely use Greenhouse/Lever (already covered)
+1. **XING Jobs (#13)** — Major DACH professional network; SPA, needs investigation
+2. **Canonical (#7)** — Custom board, needs investigation
+3. **JetBrains (#8)** — Custom board, needs investigation
+4. **Ashby adapter** — Would cover Shopify, OpenAI, Cursor, Notion, etc. (2700+ companies). Ashby public API: `GET https://api.ashbyhq.com/posting-api/job-board/{slug}` — no auth needed. Need to identify slug from company's `jobs.ashbyhq.com/{slug}` URL.
 5. **Workday (#4)** — high effort, no public API; defer until other boards exhausted

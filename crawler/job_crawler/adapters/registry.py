@@ -10,6 +10,7 @@ from job_crawler.adapters.lever import LeverAdapter
 from job_crawler.adapters.personio import PersonioAdapter
 from job_crawler.adapters.pythonjobs import PythonJobsAdapter
 from job_crawler.adapters.smartrecruiters import SmartRecruitersAdapter
+from job_crawler.adapters.stepstone import StepStoneAdapter
 
 ADAPTER_REGISTRY: list[CareerSiteAdapter] = [
     PythonJobsAdapter(),
@@ -19,6 +20,7 @@ ADAPTER_REGISTRY: list[CareerSiteAdapter] = [
     SmartRecruitersAdapter(),
     DjangoFoundationAdapter(),
     HeiseJobsAdapter(),
+    StepStoneAdapter(),
 ]
 
 
