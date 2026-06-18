@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import pytest
 from unittest.mock import patch, MagicMock
-from job_crawler.adapters.greenhouse import GreenhouseAdapter
+from job_crawler.adapters.greenhouse import GreenhouseAdapter, _company_slug
 
 GREENHOUSE_RESPONSE = {
     "jobs": [
@@ -45,6 +45,10 @@ def test_handles_greenhouse_jobs_subpath(adapter):
 def test_does_not_handle_other_domains(adapter):
     assert not adapter.can_handle('https://jobs.lever.co/stripe')
     assert not adapter.can_handle('https://example.com/careers')
+
+def test_company_slug_raises_for_bare_domain():
+    with pytest.raises(ValueError):
+        _company_slug('https://boards.greenhouse.io')
 
 
 # --- fetch_page ---

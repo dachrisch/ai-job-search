@@ -14,7 +14,10 @@ _TAG_RE = re.compile(r'<[^>]+>')
 
 
 def _company_slug(url: str) -> str:
-    return urlparse(url).path.strip('/').split('/')[0]
+    slug = urlparse(url).path.strip('/').split('/')[0]
+    if not slug:
+        raise ValueError(f'Cannot extract company slug from URL: {url!r}')
+    return slug
 
 
 def _strip_html(html: str) -> str:
@@ -53,7 +56,7 @@ class GreenhouseAdapter(CareerSiteAdapter):
             location = (item.get('location') or {}).get('name', '').strip()
             job_url = (item.get('absolute_url') or '').strip()
             departments = item.get('departments') or []
-            department = departments[0]['name'] if departments else ''
+            department = (departments[0].get('name') or '') if departments else ''
             content_snippet = _strip_html(item.get('content') or '')[:200]
 
             parts = [title, 'at', slug]
