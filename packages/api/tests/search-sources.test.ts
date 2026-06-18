@@ -55,15 +55,12 @@ describe('SearchSourceManager', () => {
       const result = await manager.discoverCompanies('test-search-id', 'typescript developer')
 
       expect(result).toEqual([])
-      expect(axios.get).toHaveBeenCalledWith(
-        'https://search.lehel.xyz/search',
-        expect.objectContaining({
-          params: expect.objectContaining({
-            q: 'typescript developer careers',
-            format: 'json'
-          })
-        })
-      )
+      const callArgs = vi.mocked(axios.get).mock.calls[0]
+      expect(callArgs[0]).toBe('https://search.lehel.xyz/search')
+      const q: string = callArgs[1]?.params?.q
+      expect(q).toMatch(/^typescript developer careers /)
+      expect(q).toContain('-site:indeed.com')
+      expect(callArgs[1]?.params?.format).toBe('json')
     })
 
     it('should filter out job aggregators from SearXNG results', async () => {
@@ -362,7 +359,7 @@ describe('SearchSourceManager', () => {
       await expect(manager.discoverCompanies('test-search-id', 'developer')).rejects.toThrow('Claude API error')
     })
 
-    it('should append " careers" to search query', async () => {
+    it('should append " careers" and site exclusions to search query', async () => {
       vi.mocked(axios.get).mockResolvedValueOnce({
         data: { results: [] }
       })
@@ -370,7 +367,10 @@ describe('SearchSourceManager', () => {
       await manager.discoverCompanies('test-search-id', 'golang engineer')
 
       const callArgs = vi.mocked(axios.get).mock.calls[0]
-      expect(callArgs[1]?.params?.q).toBe('golang engineer careers')
+      const q: string = callArgs[1]?.params?.q
+      expect(q).toMatch(/^golang engineer careers /)
+      expect(q).toContain('-site:indeed.com')
+      expect(q).toContain('-site:workday.com')
     })
 
     it('should use SEARXNG_URL from environment', async () => {
