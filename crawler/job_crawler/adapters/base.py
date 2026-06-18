@@ -18,6 +18,11 @@ JobDict = dict[str, Any]
 
 MAX_PAGES = 10
 
+USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+)
+
 
 class CareerSiteAdapter(ABC):
     """Fetches job listings from a specific ATS platform's API."""

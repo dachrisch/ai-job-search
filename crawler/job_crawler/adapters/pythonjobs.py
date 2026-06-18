@@ -6,14 +6,10 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from job_crawler.adapters.base import CareerSiteAdapter, AuthContext, RawPage, JobDict
+from job_crawler.adapters.base import CareerSiteAdapter, AuthContext, RawPage, JobDict, USER_AGENT
 
 _BASE = 'https://www.python.org'
 _JOBS_URL = f'{_BASE}/jobs/'
-_USER_AGENT = (
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-)
 
 
 class PythonJobsAdapter(CareerSiteAdapter):
@@ -27,7 +23,7 @@ class PythonJobsAdapter(CareerSiteAdapter):
         response = requests.get(
             _JOBS_URL,
             params=params,
-            headers={'User-Agent': _USER_AGENT},
+            headers={'User-Agent': USER_AGENT},
             timeout=30,
         )
         response.raise_for_status()
