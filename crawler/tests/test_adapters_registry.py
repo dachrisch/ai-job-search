@@ -3,6 +3,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from job_crawler.adapters.base import CareerSiteAdapter
 from job_crawler.adapters import registry
+from job_crawler.adapters.djangofoundation import DjangoFoundationAdapter
+from job_crawler.adapters.greenhouse import GreenhouseAdapter
+from job_crawler.adapters.heisejobs import HeiseJobsAdapter
+from job_crawler.adapters.lever import LeverAdapter
+from job_crawler.adapters.smartrecruiters import SmartRecruitersAdapter
 
 
 class _WorkdayStub(CareerSiteAdapter):
@@ -49,3 +54,28 @@ def test_find_adapter_returns_first_match_in_order(monkeypatch):
     monkeypatch.setattr(registry, 'ADAPTER_REGISTRY', [workday, catch_all])
 
     assert registry.find_adapter('https://example.com/careers') is catch_all
+
+
+def test_find_adapter_returns_greenhouse_for_greenhouse_url():
+    adapter = registry.find_adapter('https://boards.greenhouse.io/stripe')
+    assert isinstance(adapter, GreenhouseAdapter)
+
+
+def test_find_adapter_returns_lever_for_lever_url():
+    adapter = registry.find_adapter('https://jobs.lever.co/mozilla')
+    assert isinstance(adapter, LeverAdapter)
+
+
+def test_find_adapter_returns_smartrecruiters_for_sr_url():
+    adapter = registry.find_adapter('https://careers.smartrecruiters.com/Docker')
+    assert isinstance(adapter, SmartRecruitersAdapter)
+
+
+def test_find_adapter_returns_djangofoundation_for_dsf_url():
+    adapter = registry.find_adapter('https://www.djangoproject.com/foundation/jobs/')
+    assert isinstance(adapter, DjangoFoundationAdapter)
+
+
+def test_find_adapter_returns_heisejobs_for_heise_url():
+    adapter = registry.find_adapter('https://jobs.heise.de/')
+    assert isinstance(adapter, HeiseJobsAdapter)
