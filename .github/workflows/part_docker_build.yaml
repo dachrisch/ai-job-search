@@ -38,7 +38,7 @@ jobs:
     outputs:
       artifact_name: ${{ steps.set-artifact-name.outputs.artifact_name }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: 🛠️ Setup Node.js (for pre-build step)
         if: inputs.pre_build_command != ''
