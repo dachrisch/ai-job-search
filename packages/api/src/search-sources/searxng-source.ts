@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { DiscoveredCompany } from '@job-search/shared'
 import { buildAnthropicClient } from '../claude/auth.js'
+import { JOB_AGGREGATORS } from '../utils/company-discovery.js'
 
 interface SearXNGResult {
   title: string
@@ -142,8 +143,9 @@ export class SearchSourceManager {
   ]
 
   private async searchSearXNG(query: string): Promise<SearXNGResult[]> {
+    const exclusions = JOB_AGGREGATORS.map(d => `-site:${d}`).join(' ')
     const searchQueries = [
-      `${query} careers`,
+      `${query} careers ${exclusions}`,
       ...SearchSourceManager.ATS_DOMAINS.map(domain => `${query} jobs site:${domain}`)
     ]
 

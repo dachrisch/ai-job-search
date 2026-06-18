@@ -12,7 +12,7 @@ export interface Company {
 /**
  * Known job aggregator domains that should be filtered out
  */
-const JOB_AGGREGATORS = [
+export const JOB_AGGREGATORS = [
   'indeed.com',
   'linkedin.com',
   'glassdoor.com',
@@ -25,6 +25,13 @@ const JOB_AGGREGATORS = [
   'weworkremotely.com',
   'remote.co',
   'snagajob.com',
+  // ATS vendor sites — companies using these platforms host jobs on separate domains (e.g. myworkdayjobs.com)
+  'workday.com',
+  'taleo.net',
+  'icims.com',
+  'jobvite.com',
+  'successfactors.com',
+  'brassring.com',
 ]
 
 /**
