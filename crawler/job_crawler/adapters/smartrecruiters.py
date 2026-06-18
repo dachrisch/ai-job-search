@@ -64,7 +64,7 @@ class SmartRecruitersAdapter(CareerSiteAdapter):
                 description += f' | {dept}'
             if location:
                 description += f' | {location}'
-            description += f' | {slug} | smartrecruiters'
+            description += f' | {slug} | {source_url} | smartrecruiters'
 
             jobs.append({
                 'title': title,

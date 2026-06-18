@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import pytest
 from unittest.mock import patch, MagicMock
-from job_crawler.adapters.smartrecruiters import SmartRecruitersAdapter
+from job_crawler.adapters.smartrecruiters import SmartRecruitersAdapter, _company_slug
 
 SR_RESPONSE_PAGE1 = {
     "content": [
@@ -65,6 +65,10 @@ def test_handles_smartrecruiters_url(adapter):
 def test_does_not_handle_other_domains(adapter):
     assert not adapter.can_handle('https://boards.greenhouse.io/docker')
     assert not adapter.can_handle('https://example.com/careers')
+
+def test_company_slug_raises_for_bare_domain():
+    with pytest.raises(ValueError):
+        _company_slug('https://careers.smartrecruiters.com')
 
 
 # --- fetch_page ---
@@ -153,3 +157,10 @@ def test_parse_jobs_returns_no_next_token_on_last_page(adapter):
            'slug': 'Docker', 'offset': 0}
     _, next_token = adapter.parse_jobs(raw)
     assert next_token is None
+
+def test_parse_jobs_description_meets_50_char_minimum_for_thin_records(adapter):
+    raw = {'data': SR_RESPONSE_LAST_PAGE, 'source_url': 'https://careers.smartrecruiters.com/Docker',
+           'slug': 'Docker', 'offset': 0}
+    jobs, _ = adapter.parse_jobs(raw)
+    for job in jobs:
+        assert len(job['description']) >= 50, f"description too short: {job['description']!r}"
