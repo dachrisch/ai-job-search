@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/dachrisch/ai-job-search/compare/v0.5.1...v0.5.2) (2026-06-18)
+
+
+### Bug Fixes
+
+* **search:** filter ATS vendor sites from SearXNG query and blocklist ([ff338e2](https://github.com/dachrisch/ai-job-search/commit/ff338e23e05f94173a9254ca9f034584cac443ab))
+
 ## [0.5.1](https://github.com/dachrisch/ai-job-search/compare/v0.5.0...v0.5.1) (2026-06-18)
 
 
