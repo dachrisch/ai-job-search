@@ -68,9 +68,9 @@ Direct HTTP calls to `POST /crawler/crawl-company` (port 8000) with query `"Pyth
 | #10 | DjangoFoundationAdapter | ✅ **Done** | 14 tests. PR #52. Selectors based on Django template conventions — verify live when jobs are posted. |
 | #15 | HeiseJobsAdapter | ✅ **Done** | 16 tests. PR #52. `#jobOffers` scoped, `rel=next` pagination. |
 | #4 | WorkdayAdapter | ⬜ Pending | High effort — no public API |
-| #12 | StepStoneAdapter | ⬜ Pending | False positive fix needed |
+| #12 | StepStoneAdapter | ✅ **Done** | 18 tests. `article[data-at="job-item"]` selector, `rel=next` pagination, full description snippet extraction. |
 | #13 | XINGJobsAdapter | ⬜ Pending | SPA |
-| #16 | Generic spider fix | ⬜ Pending | False positive cleanup |
+| #16 | Generic spider fix | ✅ **Done** | PR feat/spider-false-positive-fixes. `url==source_url` guard + URL dedup in base spider. 5 tests. |
 
 ### Personio caveat — URL scheme migration
 
