@@ -154,11 +154,16 @@ class GenericCareerPageSpider(BaseJobSpider):
         # Convert relative URLs to absolute
         job_url = self._make_absolute_url(raw_url, response) if raw_url else ""
 
+        # Reject items that have no job-specific URL (url == source_url means a CTA,
+        # nav link, or "upload CV" button was matched rather than a real job listing).
+        if not job_url or job_url == response.url:
+            return None
+
         return {
             "title": title,
             "company": company,
             "description": description or f"Job opening: {title} at {company}. Visit the career page for full details.",
-            "url": job_url or response.url,
+            "url": job_url,
             "location": location or "Not specified",
             "salary": salary or None,
             "source_url": response.url,

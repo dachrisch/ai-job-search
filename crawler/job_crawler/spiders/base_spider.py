@@ -104,6 +104,8 @@ class BaseJobSpider(scrapy.Spider):
             },
         )
 
+        seen_urls: set[str] = set()
+
         for container in containers:
             try:
                 data = self.parse_job_item(container, response)
@@ -132,6 +134,16 @@ class BaseJobSpider(scrapy.Spider):
                     },
                 )
                 continue
+
+            job_url = data.get("url", "")
+            if job_url and job_url in seen_urls:
+                log.debug(
+                    "Duplicate job URL; skipping",
+                    extra={"url": response.url, "job_url": job_url},
+                )
+                continue
+            if job_url:
+                seen_urls.add(job_url)
 
             item = JobItem()
             for field in item.fields:
