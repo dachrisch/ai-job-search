@@ -147,18 +147,14 @@ export function JobList({ searchId, onLoadMore, isLoading }: JobListProps) {
   }
 
   if (error && jobs.length === 0) {
-    return (
-      <div style={{ padding: '20px', backgroundColor: '#ffebee', borderRadius: '4px', color: '#c33' }}>
-        <p>{error}</p>
-      </div>
-    )
+    return <div className="alert alert-error">{error}</div>
   }
 
   return (
     <div>
       {jobs.length === 0 && !isLoading && (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-          <p>No jobs found yet. Keep searching...</p>
+        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <p>No jobs found yet. Keep searching…</p>
         </div>
       )}
 
@@ -167,45 +163,19 @@ export function JobList({ searchId, onLoadMore, isLoading }: JobListProps) {
       ))}
 
       {isLoading && (
-        <div style={{
-          padding: '20px',
-          textAlign: 'center',
-          color: '#666',
-          fontStyle: 'italic'
-        }}>
-          Discovering more jobs...
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontStyle: 'italic' }}>
+          Discovering more jobs…
         </div>
       )}
 
       {hasMore && (
         <button
+          className="btn btn-primary btn-block"
           onClick={handleLoadMore}
           disabled={nextPageLoading || isLoading}
-          style={{
-            width: '100%',
-            padding: '12px 20px',
-            backgroundColor: nextPageLoading || isLoading ? '#ccc' : '#1976d2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: nextPageLoading || isLoading ? 'not-allowed' : 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            opacity: nextPageLoading || isLoading ? 0.5 : 1,
-            transition: 'background-color 0.2s'
-          }}
-          onMouseEnter={(e) => {
-            if (!nextPageLoading && !isLoading) {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#1565c0'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!nextPageLoading && !isLoading) {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#1976d2'
-            }
-          }}
+          style={{ marginTop: 8 }}
         >
-          {nextPageLoading ? 'Loading...' : 'Load More Jobs'}
+          {nextPageLoading ? 'Loading…' : 'Load more jobs'}
         </button>
       )}
     </div>

@@ -22,7 +22,7 @@ export function JobCard({ job }: JobCardProps) {
         <div style={{ flex: 1 }}>
           <h3 className="job-title">{job.title}</h3>
           <p className="job-meta">{job.company} · {job.location}{job.salary ? ` · ${job.salary}` : ''}</p>
-          <p className="job-desc">{job.description.substring(0, 200)}…</p>
+          <p className="job-desc">{job.description.length > 200 ? job.description.slice(0, 200) + '…' : job.description}</p>
         </div>
         <div className={`score ${scoreClass}`}>
           <b>{Math.round(job.matchScore)}</b>
