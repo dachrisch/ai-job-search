@@ -33,7 +33,7 @@ describe('ArbeitsagenturSource', () => {
     expect(first.title).toBe('Senior Python Entwickler (m/w/d)')
     expect(first.company).toBe('ACME GmbH')
     expect(first.location).toBe('Berlin')
-    expect(first.sourceUrl).toBe('arbeitsagentur')
+    expect(first.sourceUrl).toBe('https://www.arbeitsagentur.de/jobsuche/')
     expect(first.url).toContain('10000-1198765432-S')
     expect(first.description.length).toBeGreaterThan(0)
   })
@@ -57,6 +57,17 @@ describe('ArbeitsagenturSource', () => {
     expect(result.jobs).toHaveLength(1)
     expect(result.jobs[0].company).toBe('Unbekannt')
     expect(result.jobs[0].location).toBe('Deutschland')
+  })
+
+  it('maps location to wo and radius to umkreis', async () => {
+    const { twoJobsResponse } = await import('./arbeitsagentur-source.fixtures')
+    vi.mocked(axios.get).mockResolvedValue({ data: twoJobsResponse })
+
+    await source.search({ keywords: 'dev', location: 'Berlin', radius: 20, raw: 'dev berlin' })
+
+    const [, calledConfig] = vi.mocked(axios.get).mock.calls[0]
+    expect(calledConfig?.params?.wo).toBe('Berlin')
+    expect(calledConfig?.params?.umkreis).toBe(20)
   })
 
   it('treats a malformed payload as zero jobs (no throw)', async () => {

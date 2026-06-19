@@ -5,6 +5,7 @@ import { JobQuery, JobSource, SourceJob, SourceResult } from './types.js'
 const API_URL = 'https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs'
 const API_KEY = 'jobboerse-jobsuche' // public, well-known client key
 const DETAIL_BASE = 'https://www.arbeitsagentur.de/jobsuche/jobdetail/'
+const BOARD_URL = 'https://www.arbeitsagentur.de/jobsuche/'
 const DEFAULT_SIZE = 25
 const TIMEOUT_MS = 5000
 
@@ -59,7 +60,7 @@ export class ArbeitsagenturSource implements JobSource {
       description: `${p.titel} bei ${company} in ${location}.`,
       url,
       location,
-      sourceUrl: this.name,
+      sourceUrl: BOARD_URL,
     }
   }
 }
