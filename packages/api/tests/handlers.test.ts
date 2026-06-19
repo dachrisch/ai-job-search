@@ -17,10 +17,15 @@ vi.mock('../src/claude/client')
 vi.mock('../src/utils/company-discovery')
 vi.mock('../src/utils/job-matcher')
 vi.mock('../src/search-sources/searxng-source')
+// Plain class — unambiguously a constructor under vitest's isolate:false, where a
+// vi.fn().mockImplementation factory could resolve to a non-constructor depending on
+// file order (passed locally, failed in CI). The Tier-1 block is a no-op in these tests.
 vi.mock('../src/sources/manager', () => ({
-  SourceManager: vi.fn().mockImplementation(() => ({
-    search: vi.fn().mockResolvedValue({ source: 'source-manager', jobs: [], errors: [] }),
-  })),
+  SourceManager: class {
+    async search() {
+      return { source: 'source-manager', jobs: [], errors: [] }
+    }
+  },
 }))
 
 // Mock user for token retrieval
