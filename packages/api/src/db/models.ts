@@ -23,7 +23,7 @@ const jobSchema = new Schema<Job>({
   matchReasoning: { type: String },
   searchSessionId: { type: String, required: true, index: true },
   companyId: { type: Schema.Types.ObjectId, ref: 'Company' },
-  discoveryMethod: { type: String, enum: ['company_page'], required: true, default: 'company_page' },
+  discoveryMethod: { type: String, enum: ['company_page', 'arbeitsagentur'], required: true, default: 'company_page' },
   keywordMatchScore: { type: Number, min: 0, max: 1 },
   keywordMatchReasoning: { type: String },
   extractedAt: { type: Date, required: true },

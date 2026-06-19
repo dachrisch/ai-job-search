@@ -21,7 +21,7 @@ export interface Job {
   matchReasoning?: string
   searchSessionId: string
   companyId?: string
-  discoveryMethod: 'company_page'
+  discoveryMethod: 'company_page' | 'arbeitsagentur'
   keywordMatchScore?: number
   keywordMatchReasoning?: string
   extractedAt: Date

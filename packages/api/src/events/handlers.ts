@@ -10,6 +10,8 @@ import { SearchResult, AnalyzedPage } from '../job-sources/interfaces.js'
 import { validateAndExtractCompanies } from '../utils/company-discovery.js'
 import { calculateKeywordMatch, passesKeywordThreshold } from '../utils/job-matcher.js'
 import { SearchSourceManager } from '../search-sources/searxng-source.js'
+import { SourceManager } from '../sources/manager.js'
+import { ArbeitsagenturSource } from '../sources/arbeitsagentur-source.js'
 
 const jobSourceManager = new JobSourceManager()
 
@@ -36,6 +38,40 @@ export const eventHandlers = {
         return
       }
 
+      // Tier-1 sources: query-native job APIs. Additive — runs alongside the existing
+      // company-discovery path. Stores jobs and joins the existing scoring pipeline.
+      const sourceManager = new SourceManager([new ArbeitsagenturSource()])
+      const sourceResult = await sourceManager.search({ keywords: data.query, raw: data.query })
+      if (sourceResult.errors.length > 0) {
+        console.warn(`   ⚠️  Source errors: ${sourceResult.errors.map(e => e.message).join('; ')}`)
+      }
+
+      let apiJobsStored = 0
+      const storedApiJobIds: string[] = []
+      for (const job of sourceResult.jobs) {
+        const exists = await JobModel.findOne({ searchSessionId: data.searchId, url: job.url })
+        if (exists) continue
+        const saved = await JobModel.create({
+          ...job,
+          searchSessionId: data.searchId,
+          discoveryMethod: 'arbeitsagentur',
+          discoveredAt: new Date(),
+          extractedAt: new Date(),
+        })
+        storedApiJobIds.push(saved._id.toString())
+        apiJobsStored++
+      }
+
+      if (apiJobsStored > 0) {
+        session.jobsExtracted += apiJobsStored
+        await session.save()
+        await addEvent('jobs_extracted', {
+          searchId: data.searchId,
+          jobIds: storedApiJobIds,
+        })
+      }
+      console.log(`   ✅ Tier-1 sources stored ${apiJobsStored} jobs`)
+
       // Use SearchSourceManager to discover companies via SearXNG
       console.log(`   🔍 Discovering companies via SearchSourceManager...`)
       const searchSourceManager = new SearchSourceManager(user.claudeApiToken)
@@ -44,10 +80,15 @@ export const eventHandlers = {
       console.log(`   ✅ Found ${companies.length} companies`)
 
       if (companies.length === 0) {
-        console.log(`   📋 No companies discovered, search failed`)
+        if (apiJobsStored > 0) {
+          console.log(`   📋 No companies discovered, but ${apiJobsStored} API jobs found — completing search`)
+          await addEvent('search_complete', { searchId: data.searchId })
+          return
+        }
+        console.log(`   📋 No companies discovered and no API jobs, search failed`)
         await addEvent('search_failed', {
           searchId: data.searchId,
-          error: 'No company career pages found'
+          error: 'No jobs found'
         })
         return
       }

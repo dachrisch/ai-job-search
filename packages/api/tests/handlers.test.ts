@@ -17,6 +17,11 @@ vi.mock('../src/claude/client')
 vi.mock('../src/utils/company-discovery')
 vi.mock('../src/utils/job-matcher')
 vi.mock('../src/search-sources/searxng-source')
+vi.mock('../src/sources/manager', () => ({
+  SourceManager: vi.fn().mockImplementation(() => ({
+    search: vi.fn().mockResolvedValue({ source: 'source-manager', jobs: [], errors: [] }),
+  })),
+}))
 
 // Mock user for token retrieval
 const mockUser = {
@@ -127,7 +132,7 @@ describe('Event Handlers', () => {
 
       expect(addEvent).toHaveBeenCalledWith('search_failed', {
         searchId: 'session-123',
-        error: expect.stringContaining('No company career pages'),
+        error: expect.stringContaining('No jobs found'),
       })
     })
 
