@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/dachrisch/ai-job-search/compare/v0.6.0...v0.7.0) (2026-06-19)
+
+
+### Features
+
+* **auth:** return hasClaudeToken from login/register ([b41bb91](https://github.com/dachrisch/ai-job-search/commit/b41bb9136bf46d28ed15c877561658c4c3ab3361))
+* **frontend:** add Indigo/Slate design tokens and global stylesheet ([b2531ed](https://github.com/dachrisch/ai-job-search/commit/b2531ed9f1888f55a3da855a64b406aa0844d976))
+* **frontend:** add slim StatusLine for search progress ([15882a2](https://github.com/dachrisch/ai-job-search/commit/15882a2dc771f6c482d39ca6ec2cdb07889b54d7))
+* **frontend:** composer-style search form with example chips and Cmd+Enter ([0b33714](https://github.com/dachrisch/ai-job-search/commit/0b33714ad00f85370c584c9d5e071221b0c0c4de))
+* **frontend:** persist and expose hasClaudeToken in useAuth ([ea7e266](https://github.com/dachrisch/ai-job-search/commit/ea7e2668332a6ca70a50d582d5cd790ccc33f6b1))
+* **frontend:** redesign JobCard with soft score pill ([a8f588f](https://github.com/dachrisch/ai-job-search/commit/a8f588f0640160214b6edec5cc820821adeae0ec))
+* **frontend:** restyle search hero ([aa8a493](https://github.com/dachrisch/ai-job-search/commit/aa8a4930d47cc5cbd4ee7ee358376cead706fdae))
+* **frontend:** results-first ResultsPage with demoted, collapsible progress ([ed892d6](https://github.com/dachrisch/ai-job-search/commit/ed892d686cd4d59356b1e54c97e9e8a1b07fcbb9))
+* **frontend:** skip token screen when present; restyle auth + topbar ([07b6cda](https://github.com/dachrisch/ai-job-search/commit/07b6cda482ca5a7290cf48fa3a4980431349688c))
+
 ## [0.6.0](https://github.com/dachrisch/ai-job-search/compare/v0.5.2...v0.6.0) (2026-06-19)
 
 
