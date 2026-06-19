@@ -83,7 +83,8 @@ export const eventHandlers = {
 
       if (companies.length === 0) {
         if (apiJobsStored > 0) {
-          console.log(`   📋 No companies discovered, but ${apiJobsStored} API jobs found — search continues`)
+          console.log(`   📋 No companies discovered, but ${apiJobsStored} API jobs found — completing search`)
+          await addEvent('search_complete', { searchId: data.searchId })
           return
         }
         console.log(`   📋 No companies discovered and no API jobs, search failed`)
