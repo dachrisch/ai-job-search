@@ -58,6 +58,17 @@ describe.skipIf(process.env.CI === 'true')('Auth Service', () => {
     expect(result.token).toBeDefined()
   })
 
+  it('should report hasClaudeToken=false when registering without a token', async () => {
+    const result = await registerUser('notoken@example.com', 'password123')
+    expect(result.hasClaudeToken).toBe(false)
+  })
+
+  it('should report hasClaudeToken=true when a token exists', async () => {
+    await registerUser('withtoken@example.com', 'password123', 'sk-test-123')
+    const result = await loginUser('withtoken@example.com', 'password123')
+    expect(result.hasClaudeToken).toBe(true)
+  })
+
   it('should reject login with wrong password', async () => {
     await registerUser('test@example.com', 'password123')
     await expect(loginUser('test@example.com', 'wrongpassword')).rejects.toThrow('Invalid credentials')

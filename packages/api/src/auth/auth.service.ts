@@ -15,7 +15,7 @@ export async function registerUser(email: string, password: string, claudeApiTok
   const user = await UserModel.create({ email, passwordHash, claudeApiToken })
 
   const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
-  return { userId: user._id.toString(), token }
+  return { userId: user._id.toString(), token, hasClaudeToken: !!claudeApiToken }
 }
 
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
@@ -30,7 +30,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   }
 
   const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
-  return { userId: user._id.toString(), token }
+  return { userId: user._id.toString(), token, hasClaudeToken: !!user.claudeApiToken }
 }
 
 export function verifyToken(token: string): { userId: string; email: string } {

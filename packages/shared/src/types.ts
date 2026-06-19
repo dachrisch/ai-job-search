@@ -82,6 +82,7 @@ export interface SearchSession {
 export interface AuthResponse {
   userId: string
   token: string
+  hasClaudeToken: boolean
 }
 
 export interface SearchResponse {
