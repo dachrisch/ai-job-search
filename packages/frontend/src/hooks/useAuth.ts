@@ -4,25 +4,31 @@ import axios from 'axios'
 interface AuthState {
   userId: string | null
   token: string | null
+  hasClaudeToken: boolean
 }
+
+const EMPTY: AuthState = { userId: null, token: null, hasClaudeToken: false }
 
 export function useAuth() {
   const [auth, setAuth] = useState<AuthState>(() => {
     const stored = localStorage.getItem('auth')
-    return stored ? JSON.parse(stored) : { userId: null, token: null }
+    return stored ? { ...EMPTY, ...JSON.parse(stored) } : EMPTY
   })
+
+  const persist = (next: AuthState) => {
+    setAuth(next)
+    localStorage.setItem('auth', JSON.stringify(next))
+  }
 
   const register = useCallback(async (email: string, password: string) => {
     const { data } = await axios.post('/api/auth/register', { email, password })
-    setAuth({ userId: data.userId, token: data.token })
-    localStorage.setItem('auth', JSON.stringify({ userId: data.userId, token: data.token }))
+    persist({ userId: data.userId, token: data.token, hasClaudeToken: !!data.hasClaudeToken })
     return data
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await axios.post('/api/auth/login', { email, password })
-    setAuth({ userId: data.userId, token: data.token })
-    localStorage.setItem('auth', JSON.stringify({ userId: data.userId, token: data.token }))
+    persist({ userId: data.userId, token: data.token, hasClaudeToken: !!data.hasClaudeToken })
     return data
   }, [])
 
@@ -32,12 +38,21 @@ export function useAuth() {
       { claudeApiToken: claudeToken },
       { headers: { Authorization: `Bearer ${auth.token}` } }
     )
-  }, [auth.token])
+    persist({ ...auth, hasClaudeToken: true })
+  }, [auth])
 
   const logout = useCallback(() => {
-    setAuth({ userId: null, token: null })
+    setAuth(EMPTY)
     localStorage.removeItem('auth')
   }, [])
 
-  return { auth, register, login, setClaudeToken, logout, isAuthenticated: !!auth.token }
+  return {
+    auth,
+    register,
+    login,
+    setClaudeToken,
+    logout,
+    isAuthenticated: !!auth.token,
+    hasClaudeToken: auth.hasClaudeToken,
+  }
 }
