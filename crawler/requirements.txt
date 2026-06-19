@@ -21,4 +21,4 @@ python-dotenv==1.2.2
 python-json-logger==4.1.0
 
 # Testing
-pytest==9.1.0
+pytest==9.1.1
