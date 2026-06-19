@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.0](https://github.com/dachrisch/ai-job-search/compare/v0.5.2...v0.6.0) (2026-06-19)
+
+
+### Features
+
+* **models:** allow 'arbeitsagentur' as a job discoveryMethod ([2f0a4aa](https://github.com/dachrisch/ai-job-search/commit/2f0a4aad0d9a6f4c13a4fb6d36e320f5aab417ab))
+* **search:** run Tier-1 sources in search_started, fail-soft on no companies ([cef5fe7](https://github.com/dachrisch/ai-job-search/commit/cef5fe7fb9f2ca6410b6674c6e43243c7438abdc))
+* **sources:** add ArbeitsagenturSource happy-path mapping ([3287a9f](https://github.com/dachrisch/ai-job-search/commit/3287a9fb68a59d16d6dd93040042bcd2bc3ba168))
+* **sources:** add query-based JobSource interfaces ([85d6a8e](https://github.com/dachrisch/ai-job-search/commit/85d6a8e8aa63ab2d1ba6fb81759ca571d989927b))
+* **sources:** add SourceManager fan-out with URL dedup and failure isolation ([949dba2](https://github.com/dachrisch/ai-job-search/commit/949dba2021e42e9649b100e25ac6ab05766555ac))
+
+
+### Bug Fixes
+
+* **search:** collect Tier-1 job IDs inline; repair search_started tests ([4f8fc0e](https://github.com/dachrisch/ai-job-search/commit/4f8fc0e858699a367935dd566f8c8f9d59ea7192))
+* **search:** complete search when only Tier-1 API jobs are found ([d1c7ad3](https://github.com/dachrisch/ai-job-search/commit/d1c7ad32dab0453d720398f098b4fa168784dc84))
+* **sources:** use board URL for sourceUrl; test optional query params ([6170774](https://github.com/dachrisch/ai-job-search/commit/61707745571f383ee8601eb680e36ba56567b753))
+* **test:** robust axios mock in arbeitsagentur-source test (CI green) ([baf7d08](https://github.com/dachrisch/ai-job-search/commit/baf7d0841c0ad29dbabb9d48517879c294c734be))
+* **test:** use class mock for SourceManager (constructor-safe in CI) ([402ede6](https://github.com/dachrisch/ai-job-search/commit/402ede6834d62d4441d1d8005426077b9bbce860))
+
 ## [0.5.2](https://github.com/dachrisch/ai-job-search/compare/v0.5.1...v0.5.2) (2026-06-18)
 
 
