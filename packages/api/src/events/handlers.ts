@@ -47,29 +47,27 @@ export const eventHandlers = {
       }
 
       let apiJobsStored = 0
+      const storedApiJobIds: string[] = []
       for (const job of sourceResult.jobs) {
         const exists = await JobModel.findOne({ searchSessionId: data.searchId, url: job.url })
         if (exists) continue
-        await JobModel.create({
+        const saved = await JobModel.create({
           ...job,
           searchSessionId: data.searchId,
           discoveryMethod: 'arbeitsagentur',
           discoveredAt: new Date(),
           extractedAt: new Date(),
         })
+        storedApiJobIds.push(saved._id.toString())
         apiJobsStored++
       }
 
       if (apiJobsStored > 0) {
         session.jobsExtracted += apiJobsStored
         await session.save()
-        const storedApiJobs = await JobModel.find({
-          searchSessionId: data.searchId,
-          discoveryMethod: 'arbeitsagentur',
-        })
         await addEvent('jobs_extracted', {
           searchId: data.searchId,
-          jobIds: storedApiJobs.map(j => j._id.toString()),
+          jobIds: storedApiJobIds,
         })
       }
       console.log(`   ✅ Tier-1 sources stored ${apiJobsStored} jobs`)
