@@ -37,4 +37,35 @@ describe('ArbeitsagenturSource', () => {
     expect(first.url).toContain('10000-1198765432-S')
     expect(first.description.length).toBeGreaterThan(0)
   })
+
+  it('returns no jobs and no errors for an empty result set', async () => {
+    const { emptyResponse } = await import('./arbeitsagentur-source.fixtures')
+    vi.mocked(axios.get).mockResolvedValue({ data: emptyResponse })
+
+    const result = await source.search({ keywords: 'cobol entwickler', raw: 'cobol entwickler' })
+
+    expect(result.jobs).toEqual([])
+    expect(result.errors).toEqual([])
+  })
+
+  it('fills sensible defaults when a posting is missing employer/location', async () => {
+    const { partialJobResponse } = await import('./arbeitsagentur-source.fixtures')
+    vi.mocked(axios.get).mockResolvedValue({ data: partialJobResponse })
+
+    const result = await source.search({ keywords: 'werkstudent', raw: 'werkstudent' })
+
+    expect(result.jobs).toHaveLength(1)
+    expect(result.jobs[0].company).toBe('Unbekannt')
+    expect(result.jobs[0].location).toBe('Deutschland')
+  })
+
+  it('treats a malformed payload as zero jobs (no throw)', async () => {
+    const { malformedResponse } = await import('./arbeitsagentur-source.fixtures')
+    vi.mocked(axios.get).mockResolvedValue({ data: malformedResponse })
+
+    const result = await source.search({ keywords: 'python', raw: 'python' })
+
+    expect(result.jobs).toEqual([])
+    expect(result.errors).toEqual([])
+  })
 })
