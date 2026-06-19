@@ -106,12 +106,7 @@ export function SearchProgress({ searchId }: SearchProgressProps) {
 
   if (loading) {
     return (
-      <div style={{
-        padding: '20px',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '4px',
-        border: '1px solid #ddd'
-      }}>
+      <div className="card">
         <p>Loading search status...</p>
       </div>
     )
@@ -119,13 +114,7 @@ export function SearchProgress({ searchId }: SearchProgressProps) {
 
   if (error) {
     return (
-      <div style={{
-        padding: '20px',
-        backgroundColor: '#ffebee',
-        borderRadius: '4px',
-        border: '1px solid #f88',
-        color: '#c33'
-      }}>
+      <div className="alert alert-error">
         <p>{error}</p>
       </div>
     )
@@ -133,65 +122,14 @@ export function SearchProgress({ searchId }: SearchProgressProps) {
 
   if (!status) {
     return (
-      <div style={{
-        padding: '20px',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '4px',
-        border: '1px solid #ddd'
-      }}>
+      <div className="card">
         <p>No status available</p>
       </div>
     )
   }
 
-  const isRunning = status.status === 'running'
-
   return (
-    <div style={{
-      padding: '20px',
-      backgroundColor: 'white',
-      borderRadius: '4px',
-      border: '1px solid #ddd'
-    }}>
-      {/* Status header */}
-      <div style={{
-        padding: '15px',
-        backgroundColor: isRunning ? '#e3f2fd' : '#f1f8e9',
-        borderRadius: '4px',
-        marginBottom: '20px',
-        textAlign: 'center',
-        color: isRunning ? '#1565c0' : '#2d5016'
-      }}>
-        {isRunning ? (
-          <>
-            <span style={{
-              display: 'inline-block',
-              animation: 'spin 2s linear infinite',
-              fontSize: '20px',
-              marginRight: '8px'
-            }}>
-              🔍
-            </span>
-            <p style={{ display: 'inline', margin: 0 }}>Searching...</p>
-          </>
-        ) : status.expandedSearch ? (
-          <p style={{ margin: 0 }}>📈 Expanded search to find more results</p>
-        ) : (
-          <p style={{ margin: 0 }}>✓ Search complete</p>
-        )}
-      </div>
-
-      <style>{`
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
-
+    <div className="card">
       {/* Progress items */}
       <div>
         <ProgressItem
@@ -214,14 +152,7 @@ export function SearchProgress({ searchId }: SearchProgressProps) {
 
       {/* Remaining companies */}
       {status.companiesRemaining > 0 && (
-        <div style={{
-          marginTop: '15px',
-          padding: '10px',
-          backgroundColor: '#fff3e0',
-          borderRadius: '4px',
-          fontSize: '14px',
-          color: '#e65100'
-        }}>
+        <div className="alert alert-info" style={{ marginTop: 12 }}>
           {status.companiesRemaining} companies remaining to crawl
         </div>
       )}
@@ -236,21 +167,9 @@ interface ProgressItemProps {
 
 function ProgressItem({ label, value }: ProgressItemProps) {
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '12px 0',
-      borderBottom: '1px solid #eee'
-    }}>
-      <span style={{ color: '#666' }}>{label}</span>
-      <span style={{
-        fontWeight: 'bold',
-        fontSize: '18px',
-        color: '#1976d2'
-      }}>
-        {value}
-      </span>
+    <div className="progress-row">
+      <span className="k">{label}</span>
+      <span className="v">{value}</span>
     </div>
   )
 }
