@@ -2,9 +2,24 @@
 
 ## System Overview
 
-The Job Search Platform is a modular, event-driven system that enables intelligent job discovery through AI-powered search and web crawling. Here's how the job discovery process works:
+The Job Search Platform is a modular, event-driven system that enables intelligent job discovery through AI-powered search and web crawling.
 
-### 5-Step Job Discovery Process
+> **⚠️ Current direction (2026-06-19): layered job sources.** Job discovery is being
+> migrated from the company/ATS-adapter crawl model to a **layered, query-based source
+> architecture**. A `SourceManager` (`packages/api/src/sources/`) fans a query out to
+> multiple sources in parallel, merges, and dedupes by URL; results join the existing
+> `jobs_extracted → Claude scoring → SSE → frontend` pipeline unchanged.
+>
+> - **Tier 1 — free job APIs** (breadth). Live: `ArbeitsagenturSource` (Bundesagentur für
+>   Arbeit "Jobsuche" API; shipped v0.6.0; jobs stored with `discoveryMethod:'arbeitsagentur'`).
+> - **Tier 2 — SearXNG + LLM-as-extractor** (long tail). Planned.
+> - **Tier 3 — durable JSON ATS adapters** (Greenhouse/Lever/Personio/Ashby). Planned.
+>
+> Full design: `docs/superpowers/specs/2026-06-19-layered-job-source-strategy-design.md`.
+> The sections below describe the **legacy** company-centric / job-board pipelines, which
+> are being retired as the tiers land.
+
+### 5-Step Job Discovery Process (legacy pipeline)
 
 1. **User Initiates Search** - User submits job search query through the React frontend
 2. **Search Session Created** - API creates a new search session and emits `search_started` event to the event queue

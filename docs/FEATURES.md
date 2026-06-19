@@ -171,6 +171,23 @@ This document tracks the implementation status of features across the entire pla
 
 ## Web Crawling & Job Discovery
 
+### Layered Job Sources — Tier 1: ArbeitsagenturSource
+- **Status:** ✅ IMPLEMENTED (v0.6.0, live on servyy-test)
+- **Details:**
+  - New query-based source layer in `packages/api/src/sources/` (`JobSource` interface +
+    `SourceManager` parallel fan-out, merge, URL dedup, per-source failure isolation).
+  - `ArbeitsagenturSource` queries the Bundesagentur für Arbeit "Jobsuche" API
+    (public, free, header `X-API-Key: jobboerse-jobsuche`); maps postings to jobs stored
+    with `discoveryMethod: 'arbeitsagentur'`.
+  - Wired additively into `search_started`: stores jobs → emits existing `jobs_extracted`
+    (Claude scoring → SSE → frontend reused unchanged). Fail-soft: a search with only API
+    jobs (no companies) completes normally.
+- **Tests:** 8 unit tests + opt-in live contract test (`RUN_INTEGRATION_TESTS=true`).
+- **Verified:** end-to-end on the deployed test instance — real DACH software jobs returned.
+- **Next:** Tier 2 (SearXNG + LLM-extractor), Tier 3 (JSON ATS adapters incl. Ashby),
+  forward location/radius into the query. See
+  `docs/superpowers/specs/2026-06-19-layered-job-source-strategy-design.md`.
+
 ### Search Service (SearXNG Integration)
 - **Status:** ✅ IMPLEMENTED
 - **Details:**
