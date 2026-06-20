@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/dachrisch/ai-job-search/compare/v0.8.0...v0.8.1) (2026-06-20)
+
+
+### Bug Fixes
+
+* **frontend:** render scored jobs via pure SSE delivery ([a23c1ff](https://github.com/dachrisch/ai-job-search/commit/a23c1ffe8a5443fef07c969f1a4f03fb6154f26b))
+
 ## [0.8.0](https://github.com/dachrisch/ai-job-search/compare/v0.7.0...v0.8.0) (2026-06-19)
 
 
