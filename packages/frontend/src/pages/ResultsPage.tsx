@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useSSE } from '../hooks/useSSE'
 import { StatusLine } from '../components/StatusLine'
 import { SearchProgress } from '../components/SearchProgress'
@@ -12,10 +11,9 @@ interface ResultsPageProps {
 
 export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
   const { status, jobs, isConnected, error } = useSSE(searchId, token)
-  const [, setLoadMoreCallCount] = useState(0)
 
-  const handleLoadMore = () => setLoadMoreCallCount(prev => prev + 1)
   const isSearchRunning = status === 'running'
+  const sortedJobs = [...jobs].sort((a, b) => b.matchScore - a.matchScore)
 
   return (
     <div className="container-wide">
@@ -29,7 +27,7 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
         <div className="alert alert-info">Connecting to search stream…</div>
       )}
 
-      <StatusLine status={status} jobsFound={jobs.length} onRetry={onBack} />
+      <StatusLine status={status} jobsFound={sortedJobs.length} onRetry={onBack} />
 
       <details className="details-toggle">
         <summary>Search details</summary>
@@ -37,7 +35,7 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
       </details>
 
       <div className="job-list">
-        <JobList searchId={searchId} onLoadMore={handleLoadMore} isLoading={isSearchRunning} />
+        <JobList jobs={sortedJobs} isLoading={isSearchRunning} />
       </div>
     </div>
   )

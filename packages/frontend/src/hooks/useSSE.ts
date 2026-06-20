@@ -13,7 +13,7 @@ interface Job {
 }
 
 interface SSEPayload {
-  type: 'sync' | 'status' | 'job' | 'ping' | 'error'
+  type: 'sync' | 'status' | 'job' | 'results_updated' | 'ping' | 'error'
   payload: any
 }
 
@@ -64,6 +64,17 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
 
             case 'job':
               setJobs(prev => [...prev, data.payload.job])
+              break
+
+            case 'results_updated':
+              // Upsert scored jobs by id: update in place if present, else append
+              setJobs(prev => {
+                const byId = new Map(prev.map(j => [j.id, j]))
+                for (const job of (data.payload.jobs || [])) {
+                  byId.set(job.id, job)
+                }
+                return Array.from(byId.values())
+              })
               break
 
             case 'error':

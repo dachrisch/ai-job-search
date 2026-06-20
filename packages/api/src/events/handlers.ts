@@ -568,12 +568,26 @@ ${jobDetails}`
       console.log(`\n🤖 AGENT LOG - Results Ready For Frontend`)
       console.log(`   Broadcasting ${data.scoredJobIds.length} scored jobs`)
 
-      // Broadcast via SSE
+      // Load the scored jobs so the client can render them directly from SSE
+      const jobDocs = await JobModel.find({ _id: { $in: data.scoredJobIds } })
+      const jobs = jobDocs.map(job => ({
+        id: job._id.toString(),
+        title: job.title,
+        company: job.company,
+        description: job.description,
+        url: job.url,
+        salary: job.salary,
+        location: job.location,
+        matchScore: job.matchScore || 0,
+        matchReasoning: job.matchReasoning || ''
+      }))
+
+      // Broadcast full job objects via SSE
       sseManager.broadcast(data.searchId, {
         type: 'results_updated',
         payload: {
-          scoredJobIds: data.scoredJobIds,
-          totalScored: data.scoredJobIds.length
+          jobs,
+          totalScored: jobs.length
         }
       })
 

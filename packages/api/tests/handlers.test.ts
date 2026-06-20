@@ -710,10 +710,14 @@ describe('Event Handlers', () => {
   })
 
   describe('results_ready_for_frontend handler', () => {
-    it('should broadcast results via SSE', async () => {
+    it('should broadcast full scored job objects via SSE', async () => {
       const scoredJobIds = ['job-1', 'job-2']
+      const mockJobs = [
+        { _id: { toString: () => 'job-1' }, title: 'Backend Engineer', company: 'Acme', description: 'd1', url: 'http://a', salary: '€80k', location: 'Berlin', matchScore: 92, matchReasoning: 'great fit' },
+        { _id: { toString: () => 'job-2' }, title: 'Platform Engineer', company: 'Globex', description: 'd2', url: 'http://b', salary: undefined, location: 'Remote', matchScore: 71, matchReasoning: 'ok fit' },
+      ]
 
-      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
 
       await eventHandlers.results_ready_for_frontend(
         {
@@ -723,12 +727,17 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      expect(sseManager.broadcast).toHaveBeenCalledWith(
-        'session-123',
-        expect.objectContaining({
-          type: 'results_updated',
-        })
-      )
+      expect(JobModel.find).toHaveBeenCalledWith({ _id: { $in: scoredJobIds } })
+      expect(sseManager.broadcast).toHaveBeenCalledWith('session-123', {
+        type: 'results_updated',
+        payload: {
+          jobs: [
+            { id: 'job-1', title: 'Backend Engineer', company: 'Acme', description: 'd1', url: 'http://a', salary: '€80k', location: 'Berlin', matchScore: 92, matchReasoning: 'great fit' },
+            { id: 'job-2', title: 'Platform Engineer', company: 'Globex', description: 'd2', url: 'http://b', salary: undefined, location: 'Remote', matchScore: 71, matchReasoning: 'ok fit' },
+          ],
+          totalScored: 2,
+        },
+      })
     })
   })
 

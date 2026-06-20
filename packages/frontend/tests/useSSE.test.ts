@@ -168,6 +168,62 @@ describe('useSSE Hook', () => {
     expect(result.current.error).toMatch(/connection|reconnect/i)
   }, { timeout: 10000 })
 
+  it('should upsert jobs from a results_updated event', async () => {
+    let eventListeners: { [key: string]: Function } = {}
+    const EventSourceMock = vi.fn(function() {
+      this.addEventListener = (event: string, listener: Function) => {
+        eventListeners[event] = listener
+      }
+      this.close = vi.fn()
+    })
+    global.EventSource = EventSourceMock as any
+
+    const { result } = renderHook(() => useSSE(mockSearchId, mockToken))
+
+    const firstBatch = new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'results_updated',
+        payload: {
+          jobs: [
+            { id: 'job1', title: 'Backend Engineer', company: 'Acme', description: 'd', url: 'u', location: 'Berlin', matchScore: 90, matchReasoning: 'r' }
+          ],
+          totalScored: 1
+        }
+      })
+    })
+
+    await act(async () => {
+      eventListeners['message'](firstBatch)
+    })
+
+    await waitFor(() => {
+      expect(result.current.jobs).toHaveLength(1)
+      expect(result.current.jobs[0].id).toBe('job1')
+    })
+
+    // Re-scoring the same job upserts (no duplicate), updating the score
+    const reScored = new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'results_updated',
+        payload: {
+          jobs: [
+            { id: 'job1', title: 'Backend Engineer', company: 'Acme', description: 'd', url: 'u', location: 'Berlin', matchScore: 95, matchReasoning: 'better' }
+          ],
+          totalScored: 1
+        }
+      })
+    })
+
+    await act(async () => {
+      eventListeners['message'](reScored)
+    })
+
+    await waitFor(() => {
+      expect(result.current.jobs).toHaveLength(1)
+      expect(result.current.jobs[0].matchScore).toBe(95)
+    })
+  })
+
   it('should clean up on unmount', async () => {
     const closeJs = vi.fn()
     const EventSourceMock = vi.fn(function() {
