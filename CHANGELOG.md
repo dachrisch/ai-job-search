@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/dachrisch/ai-job-search/compare/v0.7.0...v0.8.0) (2026-06-19)
+
+
+### Features
+
+* **frontend:** add Beacon favicon (indigo broadcast mark) ([a23c2f9](https://github.com/dachrisch/ai-job-search/commit/a23c2f977d9177f950693e7e282c00cf02591cba))
+
+
+### Bug Fixes
+
+* **deps:** update dependency pytest to v9.1.1 ([#62](https://github.com/dachrisch/ai-job-search/issues/62)) ([0949d18](https://github.com/dachrisch/ai-job-search/commit/0949d18e31cc4d3316de2caf21863c550e8c7298))
+
 ## [0.7.0](https://github.com/dachrisch/ai-job-search/compare/v0.6.0...v0.7.0) (2026-06-19)
 
 
