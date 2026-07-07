@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.10](https://github.com/dachrisch/ai-job-search/compare/v0.8.9...v0.8.10) (2026-07-07)
+
+
+### Bug Fixes
+
+* **deps:** update dependency scrapy to v2.17.0 ([#81](https://github.com/dachrisch/ai-job-search/issues/81)) ([97ab189](https://github.com/dachrisch/ai-job-search/commit/97ab1899eb63b94a55918b4d20306ffd7789a4d3))
+
 ## [0.8.9](https://github.com/dachrisch/ai-job-search/compare/v0.8.8...v0.8.9) (2026-07-06)
 
 
