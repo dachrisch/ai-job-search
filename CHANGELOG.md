@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.11](https://github.com/dachrisch/ai-job-search/compare/v0.8.10...v0.8.11) (2026-07-08)
+
+
+### Bug Fixes
+
+* **deps:** update dependency typescript to v7 ([83adaf2](https://github.com/dachrisch/ai-job-search/commit/83adaf277405790aa447fb69caa6cfde2656d408))
+* **deps:** update dependency typescript to v7 ([5edd168](https://github.com/dachrisch/ai-job-search/commit/5edd1688a6257534c7b57812ec62c2e6634acfbf))
+
 ## [0.8.10](https://github.com/dachrisch/ai-job-search/compare/v0.8.9...v0.8.10) (2026-07-07)
 
 
