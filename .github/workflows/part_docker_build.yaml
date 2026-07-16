@@ -42,7 +42,7 @@ jobs:
 
       - name: 🛠️ Setup Node.js (for pre-build step)
         if: inputs.pre_build_command != ''
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
           cache: 'npm'
