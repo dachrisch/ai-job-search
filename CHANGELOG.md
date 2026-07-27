@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.20](https://github.com/dachrisch/ai-job-search/compare/v0.8.19...v0.8.20) (2026-07-27)
+
+
+### Bug Fixes
+
+* **deps:** update dependency jsdom to v30 ([#102](https://github.com/dachrisch/ai-job-search/issues/102)) ([1cb13b9](https://github.com/dachrisch/ai-job-search/commit/1cb13b9d14704eb3e51d38a2ed6767e12c31dbb6))
+
 ## [0.8.19](https://github.com/dachrisch/ai-job-search/compare/v0.8.18...v0.8.19) (2026-07-27)
 
 
