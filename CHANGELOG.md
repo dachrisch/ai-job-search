@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.21](https://github.com/dachrisch/ai-job-search/compare/v0.8.20...v0.8.21) (2026-07-29)
+
+
+### Bug Fixes
+
+* **deps:** update dependency npm-run-all2 to v9.0.3 ([#104](https://github.com/dachrisch/ai-job-search/issues/104)) ([e85c716](https://github.com/dachrisch/ai-job-search/commit/e85c7167e14c0725e9b245c1598d6721006070a7))
+
 ## [0.8.20](https://github.com/dachrisch/ai-job-search/compare/v0.8.19...v0.8.20) (2026-07-27)
 
 
