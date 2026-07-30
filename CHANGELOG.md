@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.22](https://github.com/dachrisch/ai-job-search/compare/v0.8.21...v0.8.22) (2026-07-30)
+
+
+### Bug Fixes
+
+* **deps:** update dependency redis to v8.1.0 ([#106](https://github.com/dachrisch/ai-job-search/issues/106)) ([56e5066](https://github.com/dachrisch/ai-job-search/commit/56e50660f5ca74520a17b04d38b31ea04a6de03b))
+
 ## [0.8.21](https://github.com/dachrisch/ai-job-search/compare/v0.8.20...v0.8.21) (2026-07-29)
 
 
