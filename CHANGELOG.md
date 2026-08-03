@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.23](https://github.com/dachrisch/ai-job-search/compare/v0.8.22...v0.8.23) (2026-08-03)
+
+
+### Bug Fixes
+
+* **deps:** lock file maintenance ([#111](https://github.com/dachrisch/ai-job-search/issues/111)) ([740ffd5](https://github.com/dachrisch/ai-job-search/commit/740ffd580d1c53ba7ed6268b37ccefb8950f86a8))
+* **deps:** update redis docker tag to v8.10.0 ([#109](https://github.com/dachrisch/ai-job-search/issues/109)) ([df36ec2](https://github.com/dachrisch/ai-job-search/commit/df36ec2e4859c80e38cdea120ab19aad10de8345))
+
 ## [0.8.22](https://github.com/dachrisch/ai-job-search/compare/v0.8.21...v0.8.22) (2026-07-30)
 
 
