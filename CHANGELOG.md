@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.25](https://github.com/dachrisch/ai-job-search/compare/v0.8.24...v0.8.25) (2026-08-05)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ioredis to v6 ([c6a375c](https://github.com/dachrisch/ai-job-search/commit/c6a375c6aea8d8e0a5afb4890d4392daed8fb35f))
+* **deps:** update dependency ioredis to v6 ([519d8bd](https://github.com/dachrisch/ai-job-search/commit/519d8bd587e88a81083e9318fcebbb1c0b1ae564))
+
 ## [0.8.24](https://github.com/dachrisch/ai-job-search/compare/v0.8.23...v0.8.24) (2026-08-05)
 
 
