@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.24](https://github.com/dachrisch/ai-job-search/compare/v0.8.23...v0.8.24) (2026-08-05)
+
+
+### Bug Fixes
+
+* **deps:** add ioredis peer dependency required by bullmq v6 ([f8861c5](https://github.com/dachrisch/ai-job-search/commit/f8861c5bc64b7b8a5116ecf46986f1bb6e8b4e34))
+* **deps:** update dependency bullmq to v6 ([f89f337](https://github.com/dachrisch/ai-job-search/commit/f89f33781973dc5a844ef0f2665afa09ab0fdd4e))
+* **deps:** update dependency bullmq to v6 ([a21fe5b](https://github.com/dachrisch/ai-job-search/commit/a21fe5b441a48d74534461db9510f992cafca4e1))
+
 ## [0.8.23](https://github.com/dachrisch/ai-job-search/compare/v0.8.22...v0.8.23) (2026-08-03)
 
 
