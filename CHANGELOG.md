@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.29](https://github.com/dachrisch/ai-job-search/compare/v0.8.28...v0.8.29) (2026-08-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency python-json-logger to v4.2.0 ([#121](https://github.com/dachrisch/ai-job-search/issues/121)) ([ca3803b](https://github.com/dachrisch/ai-job-search/commit/ca3803bb3b7e0767740eba95f56c95fa3a314d0e))
+
 ## [0.8.28](https://github.com/dachrisch/ai-job-search/compare/v0.8.27...v0.8.28) (2026-08-14)
 
 
