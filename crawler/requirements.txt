@@ -15,7 +15,7 @@ redis==8.1.0
 requests==2.34.2
 
 # Environment variable management
-python-dotenv==1.2.2
+python-dotenv==1.2.3
 
 # Structured JSON logging
 python-json-logger==4.2.0
