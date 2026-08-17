@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.30](https://github.com/dachrisch/ai-job-search/compare/v0.8.29...v0.8.30) (2026-08-17)
+
+
+### Bug Fixes
+
+* **deps:** update dependency python-dotenv to v1.2.3 ([#123](https://github.com/dachrisch/ai-job-search/issues/123)) ([3def15b](https://github.com/dachrisch/ai-job-search/commit/3def15b61ab5d8e3a2c993c1f7392a832741580c))
+
 ## [0.8.29](https://github.com/dachrisch/ai-job-search/compare/v0.8.28...v0.8.29) (2026-08-15)
 
 
