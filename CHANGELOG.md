@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.33](https://github.com/dachrisch/ai-job-search/compare/v0.8.32...v0.8.33) (2026-08-20)
+
+
+### Bug Fixes
+
+* **deps:** update redis docker tag to v8.10.1 ([#129](https://github.com/dachrisch/ai-job-search/issues/129)) ([74fc362](https://github.com/dachrisch/ai-job-search/commit/74fc362f58905571856cb680409fa5b957654835))
+
 ## [0.8.32](https://github.com/dachrisch/ai-job-search/compare/v0.8.31...v0.8.32) (2026-08-20)
 
 
