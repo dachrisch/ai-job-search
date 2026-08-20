@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.32](https://github.com/dachrisch/ai-job-search/compare/v0.8.31...v0.8.32) (2026-08-20)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @anthropic-ai/sdk to ^0.120.0 ([b2a418a](https://github.com/dachrisch/ai-job-search/commit/b2a418ae158002c3033884865aad7c3ae6a2e074))
+* **deps:** update dependency @anthropic-ai/sdk to ^0.120.0 ([e86055e](https://github.com/dachrisch/ai-job-search/commit/e86055ebc673e9db6e2b6c942bfd44ce2781868e))
+
 ## [0.8.31](https://github.com/dachrisch/ai-job-search/compare/v0.8.30...v0.8.31) (2026-08-17)
 
 
