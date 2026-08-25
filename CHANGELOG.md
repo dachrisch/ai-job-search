@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/dachrisch/ai-job-search/compare/v0.10.1...v0.11.0) (2026-08-25)
+
+
+### Features
+
+* replace SearchProgress polling with SSE-driven status updates ([973caad](https://github.com/dachrisch/ai-job-search/commit/973caad8e72b2976752d2a2c60491fd16b9e3489))
+
 ## [0.10.1](https://github.com/dachrisch/ai-job-search/compare/v0.10.0...v0.10.1) (2026-08-25)
 
 
