@@ -79,6 +79,7 @@ export interface SearchSession {
   jobsScored: number
   currentCrawlBatch: number
   expandedSearch: boolean
+  pipelineEvents: PipelineEvent[]
 }
 
 export interface AuthResponse {
@@ -136,4 +137,13 @@ export interface DiscoveredCompany {
   hiddenGemScore?: number        // 0-100, higher = smaller/more hidden employer
   sizeSignals?: string[]         // signals used to judge company size
   sizeBand?: 'small' | 'medium' | 'large' | 'unknown'
+}
+
+export interface PipelineEvent {
+  timestamp: Date
+  step: string
+  type: 'info' | 'query' | 'prompt' | 'response' | 'result' | 'error'
+  label: string
+  detail?: string
+  metadata?: Record<string, unknown>
 }

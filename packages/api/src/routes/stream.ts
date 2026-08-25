@@ -52,7 +52,7 @@ export async function handleStreamConnect(
     }
 
     // Send initial sync event
-    res.write(`data: ${JSON.stringify({ type: 'sync', payload: syncPayload })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'sync', payload: { ...syncPayload, pipelineEvents: session.pipelineEvents || [] } })}\n\n`)
 
     // Start heartbeat to keep connection alive
     const heartbeat = setInterval(() => {

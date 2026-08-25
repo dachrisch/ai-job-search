@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js'
 import { streamRouter } from './routes/stream.js'
 import { SSEManager } from './utils/SSEManager.js'
 import searchRoutes from './routes/searches.js'
+import insightsRoutes from './routes/insights.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -29,6 +30,7 @@ export function createApp(): { app: Express; sseManager: SSEManager } {
   app.use('/api/auth', authRoutes)
   app.use('/api/searches', streamRouter(sseManager))
   app.use('/api/searches', searchRoutes)
+  app.use('/api/searches', insightsRoutes)
 
   app.get('/api/health', (req: Request, res: Response) => {
     res.status(200).json({ status: 'ok' })

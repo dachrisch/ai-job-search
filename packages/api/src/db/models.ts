@@ -96,6 +96,16 @@ const searchSessionSchema = new Schema<SearchSession>(
     jobsScored: { type: Number, required: true, default: 0 },
     currentCrawlBatch: { type: Number, required: true, default: 1 },
     expandedSearch: { type: Boolean, required: true, default: false },
+    pipelineEvents: [
+      {
+        timestamp: { type: Date, required: true },
+        step: { type: String, required: true },
+        type: { type: String, enum: ['info', 'query', 'prompt', 'response', 'result', 'error'], required: true },
+        label: { type: String, required: true },
+        detail: { type: String },
+        metadata: { type: Schema.Types.Mixed },
+      },
+    ],
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 )

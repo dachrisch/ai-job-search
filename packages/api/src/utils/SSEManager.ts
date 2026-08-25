@@ -1,7 +1,7 @@
 import { Response } from 'express'
 
 interface SSEEvent {
-  type: 'sync' | 'status' | 'job' | 'ping' | 'error' | 'results_updated'
+  type: 'sync' | 'status' | 'job' | 'ping' | 'error' | 'results_updated' | 'pipeline_event'
   payload: Record<string, unknown>
 }
 
