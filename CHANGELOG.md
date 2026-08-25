@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/dachrisch/ai-job-search/compare/v0.9.0...v0.10.0) (2026-08-25)
+
+
+### Features
+
+* add pipeline insights page ([325b0cb](https://github.com/dachrisch/ai-job-search/commit/325b0cb801aa25dbb33c9cba58f613f969c2d1cf))
+* add pipeline insights page ([2969ade](https://github.com/dachrisch/ai-job-search/commit/2969ade55b20b93d7940c6898a78351269ea7334))
+
 ## [0.9.0](https://github.com/dachrisch/ai-job-search/compare/v0.8.35...v0.9.0) (2026-08-25)
 
 
