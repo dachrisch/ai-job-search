@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { SearchPage } from './pages/SearchPage'
 import { ResultsPage } from './pages/ResultsPage'
+import { InsightsPage } from './pages/InsightsPage'
 import { Footer } from './components/Footer'
 
-type AppPage = 'auth' | 'register' | 'search' | 'results'
+type AppPage = 'auth' | 'register' | 'search' | 'results' | 'insights'
 
 function Brand() {
   return (
@@ -71,9 +72,33 @@ export default function App() {
   if (currentPage === 'results' && currentSearchId) {
     return (
       <div className="app">
-        <div className="topbar"><Brand /><button className="btn btn-ghost" onClick={() => setCurrentPage('search')}>New search</button></div>
+        <div className="topbar">
+          <Brand />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost" onClick={() => setCurrentPage('insights')}>Insights</button>
+            <button className="btn btn-ghost" onClick={() => setCurrentPage('search')}>New search</button>
+          </div>
+        </div>
         <div className="main">
           <ResultsPage searchId={currentSearchId} token={auth.token!} onBack={() => setCurrentPage('search')} />
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (currentPage === 'insights' && currentSearchId) {
+    return (
+      <div className="app">
+        <div className="topbar">
+          <Brand />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost" onClick={() => setCurrentPage('results')}>Results</button>
+            <button className="btn btn-ghost" onClick={() => setCurrentPage('search')}>New search</button>
+          </div>
+        </div>
+        <div className="main">
+          <InsightsPage searchId={currentSearchId} token={auth.token!} onBack={() => setCurrentPage('results')} />
         </div>
         <Footer />
       </div>

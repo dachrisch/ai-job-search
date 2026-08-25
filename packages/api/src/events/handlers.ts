@@ -12,6 +12,7 @@ import { calculateKeywordMatch, passesKeywordThreshold } from '../utils/job-matc
 import { SearchSourceManager } from '../search-sources/searxng-source.js'
 import { SourceManager } from '../sources/manager.js'
 import { ArbeitsagenturSource } from '../sources/arbeitsagentur-source.js'
+import { emitPipelineEvent } from '../utils/pipeline.js'
 
 const jobSourceManager = new JobSourceManager()
 
@@ -21,6 +22,8 @@ export const eventHandlers = {
       console.log(`\n🤖 AGENT LOG - Search Started`)
       console.log(`   Query: "${data.query}"`)
 
+      await emitPipelineEvent(data.searchId, 'search_started', 'info', 'Search started', `Query: "${data.query}"`, { query: data.query }, sseManager)
+
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
@@ -29,6 +32,7 @@ export const eventHandlers = {
 
       // Tier-1 sources: query-native job APIs. Additive — runs alongside the existing
       // company-discovery path. Stores jobs and joins the existing scoring pipeline.
+      await emitPipelineEvent(data.searchId, 'tier1_search', 'info', 'Querying Arbeitsagentur API', `Keywords: "${data.query}"`, { keywords: data.query }, sseManager)
       const sourceManager = new SourceManager([new ArbeitsagenturSource()])
       const sourceResult = await sourceManager.search({ keywords: data.query, raw: data.query })
       if (sourceResult.errors.length > 0) {
@@ -54,6 +58,7 @@ export const eventHandlers = {
       if (apiJobsStored > 0) {
         session.jobsExtracted += apiJobsStored
         await session.save()
+        await emitPipelineEvent(data.searchId, 'tier1_results', 'result', `Arbeitsagentur: ${apiJobsStored} jobs stored`, undefined, { count: apiJobsStored }, sseManager)
         await addEvent('jobs_extracted', {
           searchId: data.searchId,
           jobIds: storedApiJobIds,
@@ -63,6 +68,7 @@ export const eventHandlers = {
 
       // Use SearchSourceManager to discover companies via SearXNG + opencode
       console.log(`   🔍 Discovering hidden-gem companies via SearchSourceManager...`)
+      await emitPipelineEvent(data.searchId, 'tier2_discovery', 'info', 'Starting SearXNG company discovery', 'AI-driven multi-round search', undefined, sseManager)
       const searchSourceManager = new SearchSourceManager()
       const companies = await searchSourceManager.discoverCompanies(data.searchId, data.query)
 
@@ -124,6 +130,8 @@ export const eventHandlers = {
     try {
       console.log(`\n🤖 AGENT LOG - Companies Discovered`)
       console.log(`   Storing ${data.companies.length} discovered companies...`)
+
+      await emitPipelineEvent(data.searchId, 'companies_stored', 'result', `${data.companies.length} companies discovered`, data.companies.map(c => c.name).join(', '), { companies: data.companies.map(c => ({ name: c.name, url: c.url, confidence: c.confidence })) }, sseManager)
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
@@ -305,8 +313,9 @@ export const eventHandlers = {
         company.status = 'crawling'
         await company.save()
 
-        // Emit crawl event for this company
-        await addEvent('crawl_company', {
+      // Emit crawl event for this company
+      await emitPipelineEvent(data.searchId, 'crawl', 'info', `Crawling: ${company.name}`, company.url, { companyId, url: company.url }, sseManager)
+      await addEvent('crawl_company', {
           searchId: data.searchId,
           companyId: company._id.toString(),
           url: company.url,
@@ -330,6 +339,8 @@ export const eventHandlers = {
       console.log(`\n🤖 AGENT LOG - Crawl Company`)
       console.log(`   Crawling ${data.companyName} at ${data.url}`)
 
+      await emitPipelineEvent(data.searchId, 'crawl_company', 'info', `Crawling ${data.companyName}`, data.url, { url: data.url, companyName: data.companyName }, sseManager)
+
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
@@ -352,6 +363,7 @@ export const eventHandlers = {
       const result = response.data
       console.log(`   ✅ Crawled ${data.companyName}: ${result.jobs?.length || 0} jobs found`)
 
+      await emitPipelineEvent(data.searchId, 'crawl_result', 'result', `${data.companyName}: ${(result.jobs?.length || 0)} jobs found`, undefined, { companyName: data.companyName, jobCount: result.jobs?.length || 0 }, sseManager)
       await addEvent('company_crawled', {
         searchId: data.searchId,
         companyId: data.companyId,
@@ -417,6 +429,10 @@ export const eventHandlers = {
       }
 
       console.log(`   ✅ Stored ${jobsStored} jobs (passed keyword threshold)`)
+
+      if (jobsStored > 0) {
+        await emitPipelineEvent(data.searchId, 'jobs_filtered', 'result', `Keyword filter: ${jobsStored}/${data.jobs.length} jobs passed`, undefined, { stored: jobsStored, total: data.jobs.length }, sseManager)
+      }
 
       // Validate and discover new companies
       let companiesDiscovered = 0
@@ -497,6 +513,8 @@ export const eventHandlers = {
       console.log(`\n🤖 AGENT LOG - Jobs Extracted`)
       console.log(`   Scoring ${data.jobIds.length} jobs...`)
 
+      await emitPipelineEvent(data.searchId, 'scoring_start', 'info', `Scoring ${data.jobIds.length} jobs with AI`, undefined, { jobCount: data.jobIds.length }, sseManager)
+
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
@@ -523,8 +541,11 @@ Jobs to score:
 ${jobDetails}`
 
       // Score jobs via opencode; a failure bubbles up to search_failed
+      await emitPipelineEvent(data.searchId, 'scoring_prompt', 'prompt', 'LLM scoring prompt', prompt, { jobCount: data.jobIds.length }, sseManager)
       const parsed = await callLLMJson<{ scores: any[] }>(prompt)
       const scores = parsed.scores || []
+
+      await emitPipelineEvent(data.searchId, 'scoring_result', 'response', `AI scored ${scores.length} jobs`, undefined, { scoredCount: scores.length }, sseManager)
 
       // Update each job with score
       for (const scoreData of scores) {
@@ -666,6 +687,8 @@ ${jobDetails}`
       console.log(`\n🤖 AGENT LOG - Search Evaluation`)
       console.log(`   Total jobs found: ${data.jobsFound}`)
 
+      await emitPipelineEvent(data.searchId, 'evaluation', 'info', `Evaluating search progress: ${data.jobsFound} jobs found`, undefined, { jobsFound: data.jobsFound }, sseManager)
+
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
@@ -682,6 +705,7 @@ ${jobDetails}`
 
         Respond with ONLY one of: COMPLETE, REFINE, or DEEPEN`
 
+      await emitPipelineEvent(data.searchId, 'evaluation_prompt', 'prompt', 'LLM evaluation prompt', prompt, { jobsFound: data.jobsFound }, sseManager)
       const opencodeResponse = await callLLM(prompt)
       session.conversationHistory.push(
         { role: 'user', content: prompt },
@@ -690,6 +714,8 @@ ${jobDetails}`
       await session.save()
 
       const decision = opencodeResponse.toUpperCase().trim()
+
+      await emitPipelineEvent(data.searchId, 'evaluation_response', 'response', `AI decision: ${decision}`, opencodeResponse, { decision }, sseManager)
 
       if (decision.includes('COMPLETE') || data.jobsFound >= 30) {
         await addEvent('search_complete', { searchId: data.searchId })
@@ -934,6 +960,8 @@ ${jobDetails}`
       console.log(`   Claude recommends searching more sites`)
       console.log(`   📞 Extracting new job boards to search...`)
 
+      await emitPipelineEvent(data.searchId, 'search_refined', 'info', 'Search refined, extracting new sites', undefined, undefined, sseManager)
+
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
@@ -979,6 +1007,8 @@ ${jobDetails}`
       console.log(`\n🤖 AGENT LOG - Search Complete`)
       console.log(`   🏆 Search completed successfully`)
 
+      await emitPipelineEvent(data.searchId, 'search_complete', 'info', 'Search completed, generating final ranking', undefined, undefined, sseManager)
+
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
@@ -992,7 +1022,10 @@ ${jobDetails}`
       const jobDetails = jobs.map(j => `${j.title} at ${j.company} in ${j.location}`).join('\n')
       const rankingPrompt = `Rank these jobs by how well they match "${session.query}". For each, give a score 0-100 and brief reasoning:\n${jobDetails}`
 
+      await emitPipelineEvent(data.searchId, 'final_ranking_prompt', 'prompt', 'Final LLM ranking prompt', rankingPrompt, { jobCount: jobs.length }, sseManager)
       const ranking = await callLLM(rankingPrompt)
+
+      await emitPipelineEvent(data.searchId, 'final_ranking_response', 'response', 'AI final ranking complete', ranking, undefined, sseManager)
 
       // Parse ranking and update jobs (simplified parsing)
       session.conversationHistory.push(
@@ -1035,6 +1068,7 @@ ${jobDetails}`
   search_failed: async (data: { searchId: string; error: string }, sseManager: SSEManager) => {
     try {
       console.log('Search failed handler:', data.searchId, data.error)
+      await emitPipelineEvent(data.searchId, 'search_failed', 'error', 'Search failed', data.error, { error: data.error }, sseManager)
       const session = await SearchSessionModel.findById(data.searchId)
       if (session) {
         session.status = 'failed'

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { DiscoveredCompany } from '@job-search/shared'
 import { callLLMJson } from '../ai/llm.js'
+import { emitPipelineEvent } from '../utils/pipeline.js'
 
 interface SearXNGResult {
   title: string
@@ -68,9 +69,12 @@ export class SearchSourceManager {
     let previousPlan: QueryPlan | null = null
 
     for (let round = 1; round <= MAX_ROUNDS; round++) {
+      await emitPipelineEvent(searchId, 'searxng_queries', 'query', `Generating SearXNG queries (round ${round}/${MAX_ROUNDS})`, undefined, { round }, undefined)
       const plan = await this.generateQueries(userQuery, [...allResults.values()], previousPlan)
       previousPlan = plan
+      await emitPipelineEvent(searchId, 'searxng_queries_result', 'result', `Generated ${plan.queries.length} queries`, plan.queries.map(q => q.q).join('\n'), { queries: plan.queries }, undefined)
       const roundResults = await this.runQueries(plan.queries)
+      await emitPipelineEvent(searchId, 'searxng_search_result', 'result', `Round ${round}: ${roundResults.length} results (${allResults.size} total)`, undefined, { round, roundResults: roundResults.length, total: allResults.size }, undefined)
       for (const result of roundResults) {
         if (!allResults.has(result.url)) allResults.set(result.url, result)
       }
@@ -84,7 +88,9 @@ export class SearchSourceManager {
     }
 
     const candidates = [...allResults.values()].slice(0, CLASSIFY_LIMIT)
+    await emitPipelineEvent(searchId, 'classification_start', 'info', `Classifying ${candidates.length} results with AI`, undefined, { count: candidates.length }, undefined)
     const classifications = await this.classifyResults(candidates, userQuery)
+    await emitPipelineEvent(searchId, 'classification_result', 'response', `Classification complete: ${classifications.filter(c => c.isCompanyPage).length} company pages found`, undefined, { total: classifications.length, companyPages: classifications.filter(c => c.isCompanyPage).length }, undefined)
 
     const byUrl = new Map(candidates.map(c => [c.url, c]))
     const discovered = classifications
@@ -108,7 +114,9 @@ export class SearchSourceManager {
       return []
     }
 
+    await emitPipelineEvent(searchId, 'prioritize_start', 'info', `Prioritizing ${discovered.length} companies with AI`, undefined, { count: discovered.length }, undefined)
     const priority = await this.prioritize(discovered, userQuery)
+    await emitPipelineEvent(searchId, 'prioritize_result', 'response', 'Prioritization complete', undefined, undefined, undefined)
     const priorityIndex = new Map(priority.map((url, i) => [url, i]))
     discovered.sort((a, b) => (priorityIndex.get(a.url) ?? 999) - (priorityIndex.get(b.url) ?? 999))
 
