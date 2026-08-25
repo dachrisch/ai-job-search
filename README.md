@@ -1,6 +1,6 @@
 # Job Search Platform
 
-An intelligent job search platform powered by Claude AI that automatically discovers, extracts, and ranks job listings from across the web.
+An intelligent job search platform powered by an opencode AI agent that automatically discovers hidden-gem employers, extracts, and ranks job listings from across the web.
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ An intelligent job search platform powered by Claude AI that automatically disco
 3. **Configure environment variables:**
    ```bash
    cp .env.example .env
-   # Edit .env and add your CLAUDE_API_KEY and database connection strings
+   # Edit .env and add your OPENCODE_API_KEY, SEARXNG_TOKEN, and database connection strings
    ```
 
 4. **Start services with Docker:**
@@ -65,7 +65,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 ### API Documentation
 Complete API documentation is available in [API.md](docs/API.md), including:
 
-- Authentication endpoints (register, login, set Claude token)
+- Authentication endpoints (register, login)
 - Search creation and status endpoints
 - Job listing endpoints
 - Crawler integration
@@ -81,7 +81,7 @@ job-search/
 │   │   │   ├── auth/     # JWT authentication
 │   │   │   ├── routes/   # API endpoints
 │   │   │   ├── db/       # MongoDB models
-│   │   │   ├── claude/   # Claude AI client
+│   │   │   ├── ai/       # opencode AI client + LLM facade
 │   │   │   └── events/   # BullMQ event handlers
 │   │   └── tests/        # Integration tests
 │   ├── frontend/         # React web application
@@ -104,9 +104,9 @@ job-search/
 ## Features (MVP)
 
 - **User Authentication** - Registration and login with JWT tokens
-- **AI-Powered Search** - Multi-round Claude AI conversations to refine job search queries
+- **AI-Powered Search** - opencode agent drives hidden-gem company discovery and search refinement
 - **Web Crawling** - Scrapy-based crawler discovers job boards and extracts listings
-- **Intelligent Ranking** - Claude AI evaluates and ranks jobs by match score
+- **Intelligent Ranking** - opencode evaluates and ranks jobs by match score
 - **Real-time Status** - WebSocket and polling support for search progress
 - **Job Persistence** - MongoDB stores users, jobs, and search sessions
 - **Event-Driven Architecture** - BullMQ handles asynchronous job processing
@@ -145,7 +145,7 @@ docker-compose down
 - **Database**: MongoDB 8.3 (Mongoose ORM)
 - **Event Queue**: BullMQ with Redis 8.6.3
 - **Web Crawler**: Scrapy, BeautifulSoup, Python 3.9+
-- **AI Integration**: Anthropic Claude API
+- **AI Integration**: opencode agent API (opencode.lehel.xyz)
 - **Authentication**: JWT (jsonwebtoken)
 - **Testing**: Vitest, MongoDB Memory Server
 

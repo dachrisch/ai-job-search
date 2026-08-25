@@ -12,7 +12,7 @@ The Job Search Platform is a modular, event-driven system that enables intellige
 >
 > - **Tier 1 — free job APIs** (breadth). Live: `ArbeitsagenturSource` (Bundesagentur für
 >   Arbeit "Jobsuche" API; shipped v0.6.0; jobs stored with `discoveryMethod:'arbeitsagentur'`).
-> - **Tier 2 — SearXNG + LLM-as-extractor** (long tail). Planned.
+> - **Tier 2 — SearXNG + opencode agent discovery** (long tail / hidden gems). Live: `SearchSourceManager` runs an iterative hidden-gem discovery loop (opencode proposes queries → SearXNG paginated search → classify + score → prioritize).
 > - **Tier 3 — durable JSON ATS adapters** (Greenhouse/Lever/Personio/Ashby). Planned.
 >
 > Full design: `docs/superpowers/specs/2026-06-19-layered-job-source-strategy-design.md`.
@@ -23,9 +23,9 @@ The Job Search Platform is a modular, event-driven system that enables intellige
 
 1. **User Initiates Search** - User submits job search query through the React frontend
 2. **Search Session Created** - API creates a new search session and emits `search_started` event to the event queue
-3. **Claude AI Analysis** - AI service processes the query through multi-round Claude conversations to refine search parameters
-4. **Web Crawling** - Crawler discovers relevant job boards and extracts job listings matching the refined parameters
-5. **Job Ranking & Storage** - Extracted jobs are evaluated by Claude, ranked by match score, and stored in MongoDB
+3. **opencode Discovery** - The opencode agent proposes diverse SearXNG queries biased toward hidden-gem employers, the backend runs them, and the agent classifies + scores company career pages
+4. **Web Crawling** - Crawler extracts job listings from the discovered company pages
+5. **Job Ranking & Storage** - Extracted jobs are evaluated by opencode, ranked by match score, and stored in MongoDB
 
 ## System Components
 
@@ -70,7 +70,6 @@ The Job Search Platform is a modular, event-driven system that enables intellige
 **Key Routes:**
 - `POST /api/auth/register` - User registration
 - `POST /api/auth/login` - User authentication
-- `POST /api/auth/set-claude-token` - Store Claude API key
 - `POST /api/searches` - Create search session
 - `GET /api/searches/{searchId}` - Get search status
 - `GET /api/searches/{searchId}/jobs` - Retrieve ranked jobs
@@ -100,9 +99,10 @@ The Job Search Platform is a modular, event-driven system that enables intellige
 
 **Event Types:**
 - `search_started` - Triggered when user creates new search
-- `claude_analysis_complete` - AI has refined search parameters
-- `jobs_crawled` - Crawler has extracted job listings
-- `jobs_ranked` - Claude has ranked jobs by match
+- `companies_discovered` - opencode-driven SearXNG discovery found companies
+- `crawl_company` / `company_crawled` - Crawler extracts a company's jobs
+- `jobs_extracted` - opencode scores the extracted jobs
+- `results_ready_for_frontend` - Scored jobs broadcast over SSE
 
 **Key Files:**
 - `src/events/queue.ts` - Queue configuration and event publishing
@@ -110,21 +110,22 @@ The Job Search Platform is a modular, event-driven system that enables intellige
 
 ---
 
-### Claude AI Client
+### opencode AI Client
 
 **Technology Stack:**
-- Anthropic Claude API (Claude 3.5 Sonnet)
-- TypeScript SDK
-- Conversation history management
+- opencode agent API (opencode.lehel.xyz)
+- HTTP client: session create → prompt → poll for reply
+- Model tiers with retry + failover
 
 **Responsibilities:**
-- Multi-round conversational search refinement
-- Query parameter extraction
+- Hidden-gem query generation and search refinement
+- Company career-page classification and scoring
 - Job evaluation and ranking
 - Match score calculation with reasoning
 
 **Key Files:**
-- `src/claude/client.ts` - API client and conversation logic
+- `src/ai/opencode.ts` - opencode session client
+- `src/ai/llm.ts` - `callLLM` / `callLLMJson` facade
 
 ---
 
@@ -174,7 +175,6 @@ POST /crawler/scrape
   _id: ObjectId,
   email: String,
   passwordHash: String,
-  claudeApiToken: String (optional),
   createdAt: Date,
   updatedAt: Date
 }
@@ -187,7 +187,7 @@ POST /crawler/scrape
   userId: String (index),
   query: String,
   status: "running" | "complete" | "failed",
-  claudeConversationHistory: [
+  conversationHistory: [
     { role: "user" | "assistant", content: String }
   ],
   foundJobs: [String],
@@ -382,7 +382,7 @@ CRAWLER_PORT=8000
 | Runtime | Node.js | 20.x |
 | Crawler | Scrapy | Latest |
 | Crawler | Python | 3.9+ |
-| AI | Claude API | 3.5 Sonnet |
+| AI | opencode agent | opencode.lehel.xyz |
 
 ---
 

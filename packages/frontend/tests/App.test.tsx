@@ -2,23 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import App from '../src/App'
 
-function seedAuth(hasClaudeToken: boolean) {
-  localStorage.setItem('auth', JSON.stringify({ userId: 'u1', token: 't1', hasClaudeToken }))
+function seedAuth() {
+  localStorage.setItem('auth', JSON.stringify({ userId: 'u1', token: 't1' }))
 }
 
 describe('App routing', () => {
   beforeEach(() => localStorage.clear())
 
-  it('goes straight to search when the Claude token already exists', () => {
-    seedAuth(true)
+  it('goes straight to search when authenticated', () => {
+    seedAuth()
     render(<App />)
     expect(screen.getByText('Find your next role.')).toBeInTheDocument()
-    expect(screen.queryByText(/Claude API/i)).not.toBeInTheDocument()
   })
 
-  it('shows the token setup screen when the token is missing', () => {
-    seedAuth(false)
+  it('shows the login screen when not authenticated', () => {
     render(<App />)
-    expect(screen.getByText(/Connect your Claude API key/i)).toBeInTheDocument()
+    expect(screen.getByText(/Sign in/i)).toBeInTheDocument()
   })
 })

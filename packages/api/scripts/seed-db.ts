@@ -5,13 +5,11 @@ import bcryptjs from 'bcryptjs'
 const testUsers = [
   {
     email: 'test@example.com',
-    password: 'password123',
-    claudeApiToken: 'replace-with-real-token'
+    password: 'password123'
   },
   {
     email: 'demo@example.com',
-    password: 'demo123',
-    claudeApiToken: 'replace-with-real-token'
+    password: 'demo123'
   }
 ]
 
@@ -32,8 +30,7 @@ async function seed() {
       const passwordHash = await bcryptjs.hash(user.password, 10)
       const newUser = await UserModel.create({
         email: user.email,
-        passwordHash,
-        claudeApiToken: user.claudeApiToken
+        passwordHash
       })
       createdUsers.push(newUser)
       console.log(`   ✅ Created: ${user.email}`)

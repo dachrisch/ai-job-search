@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { UserModel, CompanyModel, JobModel, SearchSessionModel } from '../src/db/models.js'
 import { createApp } from '../src/index.js'
 import { connectDB, disconnectDB } from '../src/db/index.js'
+
+// isolate:false shares the module registry across test files — load the LLM
+// facade as a mock so it never instantiates the real opencode client here.
+vi.mock('../src/ai/llm.js')
 
 // Create the app for testing (without starting the server)
 const { app } = createApp()
@@ -178,7 +182,7 @@ describe.skipIf(process.env.CI === 'true' || process.env.RUN_INTEGRATION_TESTS !
       userId,
       query: 'python engineer',
       status: 'complete',
-      claudeConversationHistory: [],
+      conversationHistory: [],
       foundJobs: [],
       sitesSearched: [],
       iterationCount: 1,
@@ -269,7 +273,7 @@ describe.skipIf(process.env.CI === 'true' || process.env.RUN_INTEGRATION_TESTS !
       userId,
       query: 'python engineer',
       status: 'complete',
-      claudeConversationHistory: [],
+      conversationHistory: [],
       foundJobs: [],
       sitesSearched: [],
       iterationCount: 1,
@@ -356,7 +360,7 @@ describe.skipIf(process.env.CI === 'true' || process.env.RUN_INTEGRATION_TESTS !
       userId,
       query: 'python engineer',
       status: 'complete',
-      claudeConversationHistory: [],
+      conversationHistory: [],
       foundJobs: [],
       sitesSearched: [],
       iterationCount: 1,
@@ -440,7 +444,7 @@ describe.skipIf(process.env.CI === 'true' || process.env.RUN_INTEGRATION_TESTS !
       userId,
       query: 'python engineer',
       status: 'complete',
-      claudeConversationHistory: [],
+      conversationHistory: [],
       foundJobs: [],
       sitesSearched: [],
       iterationCount: 1,
@@ -552,7 +556,7 @@ describe.skipIf(process.env.CI === 'true' || process.env.RUN_INTEGRATION_TESTS !
       userId: user1Id,
       query: 'python engineer',
       status: 'complete',
-      claudeConversationHistory: [],
+      conversationHistory: [],
       foundJobs: [],
       sitesSearched: [],
       iterationCount: 1,

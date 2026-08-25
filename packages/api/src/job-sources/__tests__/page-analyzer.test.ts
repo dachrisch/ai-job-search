@@ -1,8 +1,17 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PageAnalyzer } from '../page-analyzer'
 import { SearchResult } from '../interfaces'
 
+vi.mock('../../ai/llm.js')
+
+import { callLLMJson } from '../../ai/llm.js'
+
 describe('PageAnalyzer', () => {
   const analyzer = new PageAnalyzer()
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
 
   it('should analyze search results and prioritize job boards', async () => {
     const results: SearchResult[] = [
@@ -20,6 +29,11 @@ describe('PageAnalyzer', () => {
       }
     ]
 
+    vi.mocked(callLLMJson).mockResolvedValue([
+      { urlIndex: 1, confidence: 0.95, priority: 9, reason: 'Job board' },
+      { urlIndex: 2, confidence: 0.1, priority: 2, reason: 'Blog post' }
+    ])
+
     const analyzed = await analyzer.analyzePages(results, 'python backend engineer')
 
     expect(Array.isArray(analyzed)).toBe(true)
@@ -36,7 +50,7 @@ describe('PageAnalyzer', () => {
     })
   })
 
-  it('should handle Claude API failures gracefully', async () => {
+  it('should fall back to heuristic analysis when opencode fails', async () => {
     const results: SearchResult[] = [
       {
         url: 'https://example.com',
@@ -45,6 +59,8 @@ describe('PageAnalyzer', () => {
         relevanceScore: 0.5
       }
     ]
+
+    vi.mocked(callLLMJson).mockRejectedValue(new Error('opencode unavailable'))
 
     const analyzed = await analyzer.analyzePages(results, 'test query')
 

@@ -1,11 +1,17 @@
 import { SearchResult, AnalyzedPage, PageAnalysisOptions } from './interfaces.js'
-import { callClaude } from '../claude/client.js'
+import { callLLMJson } from '../ai/llm.js'
+
+interface AnalyzedItem {
+  urlIndex: number
+  confidence: number
+  priority: number
+  reason: string
+}
 
 export class PageAnalyzer {
   async analyzePages(
     results: SearchResult[],
     userQuery: string,
-    userId: string = 'system',
     options: PageAnalysisOptions = {}
   ): Promise<AnalyzedPage[]> {
     const maxPages = options.maxPages || 20
@@ -35,10 +41,10 @@ Return ONLY valid JSON array, no other text:
   ...
 ]`
 
-      const response = await callClaude(userId, prompt)
-      const analyzed = this.parseAnalysis(response, pagesToAnalyze, minConfidence)
-
-      return analyzed.sort((a, b) => b.priority - a.priority)
+      const analyzed = await callLLMJson<AnalyzedItem[]>(prompt)
+      return this.parseAnalysis(analyzed, pagesToAnalyze, minConfidence).sort(
+        (a, b) => b.priority - a.priority
+      )
     } catch (error) {
       console.error('PageAnalyzer failed:', error instanceof Error ? error.message : error)
       return this.fallbackAnalysis(results, userQuery, minConfidence)
@@ -46,31 +52,19 @@ Return ONLY valid JSON array, no other text:
   }
 
   private parseAnalysis(
-    response: string,
+    analyzed: AnalyzedItem[],
     pages: SearchResult[],
     minConfidence: number
   ): AnalyzedPage[] {
-    try {
-      const jsonMatch = response.match(/\[[\s\S]*\]/)
-      if (!jsonMatch) {
-        throw new Error('No JSON array found in response')
-      }
-
-      const analyzed = JSON.parse(jsonMatch[0])
-
-      return analyzed
-        .filter((item: any) => item.confidence >= minConfidence)
-        .map((item: any) => ({
-          url: pages[item.urlIndex - 1]?.url || '',
-          confidence: Math.min(1, Math.max(0, item.confidence)),
-          reason: item.reason || 'Analyzed by Claude',
-          priority: Math.min(10, Math.max(1, item.priority))
-        }))
-        .filter((item: any) => item.url)
-    } catch (error) {
-      console.warn('Failed to parse Claude analysis:', error)
-      throw error
-    }
+    return analyzed
+      .filter((item: AnalyzedItem) => item.confidence >= minConfidence)
+      .map((item: AnalyzedItem) => ({
+        url: pages[item.urlIndex - 1]?.url || '',
+        confidence: Math.min(1, Math.max(0, item.confidence)),
+        reason: item.reason || 'Analyzed by opencode',
+        priority: Math.min(10, Math.max(1, item.priority))
+      }))
+      .filter((item: AnalyzedPage) => item.url)
   }
 
   private fallbackAnalysis(results: SearchResult[], userQuery: string, minConfidence: number = 0.3): AnalyzedPage[] {

@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { eventHandlers } from '../src/events/handlers'
-import { SearchSessionModel, JobModel, CompanyModel, UserModel } from '../src/db/models'
+import { SearchSessionModel, JobModel, CompanyModel } from '../src/db/models'
 import { addEvent } from '../src/events/queue'
 import { SSEManager } from '../src/utils/SSEManager'
 import * as companyDiscovery from '../src/utils/company-discovery'
 import * as jobMatcher from '../src/utils/job-matcher'
 import { SearchService } from '../src/job-sources/search-service'
-import { callClaude } from '../src/claude/client'
+import { callLLMJson } from '../src/ai/llm'
 import { SearchSourceManager } from '../src/search-sources/searxng-source'
 
 // Mock dependencies
 vi.mock('../src/db/models')
 vi.mock('../src/events/queue')
 vi.mock('../src/job-sources/search-service')
-vi.mock('../src/claude/client')
+vi.mock('../src/ai/llm.js')
 vi.mock('../src/utils/company-discovery')
 vi.mock('../src/utils/job-matcher')
 vi.mock('../src/search-sources/searxng-source')
@@ -28,11 +28,10 @@ vi.mock('../src/sources/manager', () => ({
   },
 }))
 
-// Mock user for token retrieval
+// Mock user
 const mockUser = {
   _id: 'user-123',
   email: 'test@example.com',
-  claudeApiToken: 'test-token-123'
 }
 
 describe('Event Handlers', () => {
@@ -41,7 +40,7 @@ describe('Event Handlers', () => {
   let mockSearchService: any
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
 
     // Setup mock session
     mockSession = {
@@ -75,13 +74,12 @@ describe('Event Handlers', () => {
       search: vi.fn(),
     }
 
-    // Mock UserModel.findById to return user with API token
+    // Mock SearchSessionModel.findById
     vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-    vi.mocked(UserModel as any).findById = vi.fn().mockResolvedValue(mockUser)
   })
 
   afterEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   describe('search_started handler', () => {
@@ -198,7 +196,6 @@ describe('Event Handlers', () => {
       )
 
       expect(companyDiscovery.validateAndExtractCompanies).toHaveBeenCalledWith(
-        'user-123',
         'software engineer',
         searchResults
       )
@@ -569,7 +566,7 @@ describe('Event Handlers', () => {
   })
 
   describe('jobs_extracted handler', () => {
-    it('should score jobs using Claude API', async () => {
+    it('should score jobs using opencode', async () => {
       const jobIds = ['job-1', 'job-2']
       const mockJobs = [
         {
@@ -594,16 +591,14 @@ describe('Event Handlers', () => {
         },
       ]
 
-      const claudeResponse = JSON.stringify({
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
+      vi.mocked(callLLMJson).mockResolvedValue({
         scores: [
           { jobId: 'job-1', matchScore: 92, reasoning: 'Excellent match' },
           { jobId: 'job-2', matchScore: 75, reasoning: 'Good match' },
         ],
       })
-
-      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
-      vi.mocked(callClaude).mockResolvedValue(claudeResponse)
       vi.mocked(JobModel.findByIdAndUpdate).mockResolvedValue({} as any)
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
@@ -615,8 +610,8 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      // Verify Claude was called with job details
-      expect(callClaude).toHaveBeenCalledWith('user-123', expect.stringContaining('Senior Engineer'))
+      // Verify opencode was called with job details
+      expect(callLLMJson).toHaveBeenCalledWith(expect.stringContaining('Senior Engineer'))
 
       // Verify jobs were updated with scores
       expect(JobModel.findByIdAndUpdate).toHaveBeenCalledTimes(2)
@@ -644,15 +639,13 @@ describe('Event Handlers', () => {
         },
       ]
 
-      const claudeResponse = JSON.stringify({
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
+      vi.mocked(callLLMJson).mockResolvedValue({
         scores: [
           { jobId: 'job-1', matchScore: 90, reasoning: 'Great match' },
         ],
       })
-
-      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
-      vi.mocked(callClaude).mockResolvedValue(claudeResponse)
       vi.mocked(JobModel.findByIdAndUpdate).mockResolvedValue({} as any)
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
@@ -670,7 +663,7 @@ describe('Event Handlers', () => {
       })
     })
 
-    it('should handle Claude API errors gracefully', async () => {
+    it('should emit search_failed when opencode scoring fails', async () => {
       const jobIds = ['job-1']
       const mockJobs = [
         {
@@ -687,8 +680,7 @@ describe('Event Handlers', () => {
 
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
       vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
-      vi.mocked(callClaude).mockRejectedValue(new Error('API error'))
-      vi.mocked(JobModel.findByIdAndUpdate).mockResolvedValue({} as any)
+      vi.mocked(callLLMJson).mockRejectedValue(new Error('opencode unavailable'))
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       await eventHandlers.jobs_extracted(
@@ -699,13 +691,12 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      // Should assign default score on error
-      expect(JobModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        'job-1',
-        expect.objectContaining({
-          matchScore: expect.any(Number),
-        })
-      )
+      // Fail loudly: no scores assigned, search fails
+      expect(JobModel.findByIdAndUpdate).not.toHaveBeenCalled()
+      expect(addEvent).toHaveBeenCalledWith('search_failed', {
+        searchId: 'session-123',
+        error: expect.any(String),
+      })
     })
   })
 

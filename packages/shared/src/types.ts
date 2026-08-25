@@ -2,7 +2,6 @@ export interface User {
   _id: string
   email: string
   passwordHash: string
-  claudeApiToken?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -38,6 +37,9 @@ export interface Company {
   searchQuery: string
   discoveredFrom: 'searxng' | 'manual'
   confidence?: 'high' | 'medium' | 'low'
+  hiddenGemScore?: number
+  sizeBand?: 'small' | 'medium' | 'large' | 'unknown'
+  sizeSignals?: string[]
   status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed' | 'unsupported'
   crawlAttempts: number
   lastCrawlTime?: Date
@@ -63,7 +65,7 @@ export interface SearchSession {
   searchQueries?: string[]
   discoveredPages?: string[]
   scrapedPages?: string[]
-  claudeConversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
   foundJobs: string[]
   sitesSearched: string[]
   iterationCount: number
@@ -82,7 +84,6 @@ export interface SearchSession {
 export interface AuthResponse {
   userId: string
   token: string
-  hasClaudeToken: boolean
 }
 
 export interface SearchResponse {
@@ -115,12 +116,12 @@ export interface CrawlerResponse {
   newSites?: string[]
 }
 
-export interface ClaudeSearchSuggestion {
+export interface AISearchSuggestion {
   sites: string[]
   keywords: string
 }
 
-export interface ClaudeRankingResult {
+export interface AIRankingResult {
   jobId: string
   matchScore: number
   reasoning: string
@@ -132,4 +133,7 @@ export interface DiscoveredCompany {
   title: string                  // page title from search result
   snippet: string                // search result snippet
   confidence: 'high' | 'medium' | 'low'
+  hiddenGemScore?: number        // 0-100, higher = smaller/more hidden employer
+  sizeSignals?: string[]         // signals used to judge company size
+  sizeBand?: 'small' | 'medium' | 'large' | 'unknown'
 }
