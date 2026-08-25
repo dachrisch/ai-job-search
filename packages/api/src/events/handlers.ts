@@ -925,7 +925,12 @@ ${jobDetails}`
         type: 'status',
         payload: {
           status: session.status,
-          iterationCount: session.iterationCount
+          iterationCount: session.iterationCount,
+          companiesDiscovered: session.companiesDiscovered,
+          companiesCrawled: session.companiesCrawled,
+          companiesRemaining: session.companiesRemaining,
+          jobsExtracted: session.jobsExtracted,
+          jobsScored: session.jobsScored
         }
       })
 
@@ -1041,7 +1046,12 @@ ${jobDetails}`
         type: 'status',
         payload: {
           status: 'complete',
-          iterationCount: session.iterationCount
+          iterationCount: session.iterationCount,
+          companiesDiscovered: session.companiesDiscovered,
+          companiesCrawled: session.companiesCrawled,
+          companiesRemaining: session.companiesRemaining,
+          jobsExtracted: session.jobsExtracted,
+          jobsScored: session.jobsScored
         }
       })
 

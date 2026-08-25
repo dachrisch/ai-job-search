@@ -10,7 +10,7 @@ interface ResultsPageProps {
 }
 
 export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
-  const { status, jobs, isConnected, error } = useSSE(searchId, token)
+  const { status, jobs, progress, isConnected, error } = useSSE(searchId, token)
 
   const isSearchRunning = status === 'running'
   const sortedJobs = [...jobs].sort((a, b) => b.matchScore - a.matchScore)
@@ -31,7 +31,13 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
 
       <details className="details-toggle">
         <summary>Search details</summary>
-        <SearchProgress searchId={searchId} />
+        <SearchProgress
+          companiesDiscovered={progress.companiesDiscovered}
+          companiesCrawled={progress.companiesCrawled}
+          companiesRemaining={progress.companiesRemaining}
+          jobsExtracted={progress.jobsExtracted}
+          jobsScored={progress.jobsScored}
+        />
       </details>
 
       <div className="job-list">
