@@ -70,7 +70,7 @@ export const eventHandlers = {
       console.log(`   🔍 Discovering hidden-gem companies via SearchSourceManager...`)
       await emitPipelineEvent(data.searchId, 'tier2_discovery', 'info', 'Starting SearXNG company discovery', 'AI-driven multi-round search', undefined, sseManager)
       const searchSourceManager = new SearchSourceManager()
-      const companies = await searchSourceManager.discoverCompanies(data.searchId, data.query)
+      const companies = await searchSourceManager.discoverCompanies(data.searchId, data.query, sseManager)
 
       console.log(`   ✅ Found ${companies.length} companies`)
 
