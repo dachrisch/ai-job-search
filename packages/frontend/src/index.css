@@ -126,13 +126,6 @@ a:hover { text-decoration: underline; }
 .score-warn b { color: var(--warn); }
 .score-warn small { color: var(--warn); }
 
-/* Disclosure (search details) */
-.details-toggle { margin-top: 16px; }
-.details-toggle > summary { cursor: pointer; color: var(--text-muted); font-size: 13px; list-style: none; user-select: none; padding: 6px 0; }
-.details-toggle > summary::-webkit-details-marker { display: none; }
-.details-toggle > summary::before { content: '▸ '; color: var(--text-faint); }
-.details-toggle[open] > summary::before { content: '▾ '; }
-
 /* Banners / alerts */
 .alert { padding: 12px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 16px; }
 .alert-error { background: var(--danger-soft); color: var(--danger); border: 1px solid #FCA5A5; }

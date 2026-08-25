@@ -1,6 +1,5 @@
 import { useSSE } from '../hooks/useSSE'
 import { StatusLine } from '../components/StatusLine'
-import { SearchProgress } from '../components/SearchProgress'
 import { JobList } from '../components/JobList'
 
 interface ResultsPageProps {
@@ -28,11 +27,6 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
       )}
 
       <StatusLine status={status} jobsFound={sortedJobs.length} onRetry={onBack} />
-
-      <details className="details-toggle">
-        <summary>Search details</summary>
-        <SearchProgress searchId={searchId} />
-      </details>
 
       <div className="job-list">
         <JobList jobs={sortedJobs} isLoading={isSearchRunning} />

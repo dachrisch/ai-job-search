@@ -37,6 +37,11 @@ export async function handleStreamConnect(
     const syncPayload = {
       status: session.status,
       iterationCount: session.iterationCount,
+      companiesDiscovered: session.companiesDiscovered,
+      companiesCrawled: session.companiesCrawled,
+      companiesRemaining: session.companiesRemaining,
+      jobsExtracted: session.jobsExtracted,
+      jobsScored: session.jobsScored,
       jobs: jobs.map(job => ({
         id: job._id.toString(),
         title: job.title,
