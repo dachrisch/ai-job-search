@@ -1,6 +1,5 @@
 import { useSSE } from '../hooks/useSSE'
 import { StatusLine } from '../components/StatusLine'
-import { SearchProgress } from '../components/SearchProgress'
 import { JobList } from '../components/JobList'
 
 interface ResultsPageProps {
@@ -10,7 +9,7 @@ interface ResultsPageProps {
 }
 
 export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
-  const { status, jobs, progress, isConnected, error } = useSSE(searchId, token)
+  const { status, jobs, isConnected, error } = useSSE(searchId, token)
 
   const isSearchRunning = status === 'running'
   const sortedJobs = [...jobs].sort((a, b) => b.matchScore - a.matchScore)
@@ -28,17 +27,6 @@ export function ResultsPage({ searchId, token, onBack }: ResultsPageProps) {
       )}
 
       <StatusLine status={status} jobsFound={sortedJobs.length} onRetry={onBack} />
-
-      <details className="details-toggle">
-        <summary>Search details</summary>
-        <SearchProgress
-          companiesDiscovered={progress.companiesDiscovered}
-          companiesCrawled={progress.companiesCrawled}
-          companiesRemaining={progress.companiesRemaining}
-          jobsExtracted={progress.jobsExtracted}
-          jobsScored={progress.jobsScored}
-        />
-      </details>
 
       <div className="job-list">
         <JobList jobs={sortedJobs} isLoading={isSearchRunning} />

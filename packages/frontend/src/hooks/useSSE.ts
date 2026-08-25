@@ -17,20 +17,11 @@ interface SSEPayload {
   payload: any
 }
 
-interface SearchProgress {
-  companiesDiscovered: number
-  companiesCrawled: number
-  companiesRemaining: number
-  jobsExtracted: number
-  jobsScored: number
-}
-
 interface UseSSEReturn {
   status: 'running' | 'complete' | 'failed'
   iterationCount: number
   jobs: Job[]
   sitesSearched: string[]
-  progress: SearchProgress
   isConnected: boolean
   error: string | null
 }
@@ -40,13 +31,6 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
   const [iterationCount, setIterationCount] = useState(0)
   const [jobs, setJobs] = useState<Job[]>([])
   const [sitesSearched, setSitesSearched] = useState<string[]>([])
-  const [progress, setProgress] = useState<SearchProgress>({
-    companiesDiscovered: 0,
-    companiesCrawled: 0,
-    companiesRemaining: 0,
-    jobsExtracted: 0,
-    jobsScored: 0
-  })
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reconnectAttempts, setReconnectAttempts] = useState(0)
@@ -68,15 +52,6 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
               setIterationCount(data.payload.iterationCount)
               setJobs(data.payload.jobs || [])
               setSitesSearched(data.payload.sitesSearched || [])
-              if (data.payload.companiesDiscovered != null) {
-                setProgress({
-                  companiesDiscovered: data.payload.companiesDiscovered,
-                  companiesCrawled: data.payload.companiesCrawled,
-                  companiesRemaining: data.payload.companiesRemaining,
-                  jobsExtracted: data.payload.jobsExtracted,
-                  jobsScored: data.payload.jobsScored
-                })
-              }
               setIsConnected(true)
               setError(null)
               setReconnectAttempts(0)
@@ -85,15 +60,6 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
             case 'status':
               setStatus(data.payload.status)
               setIterationCount(data.payload.iterationCount)
-              if (data.payload.companiesDiscovered != null) {
-                setProgress({
-                  companiesDiscovered: data.payload.companiesDiscovered,
-                  companiesCrawled: data.payload.companiesCrawled,
-                  companiesRemaining: data.payload.companiesRemaining,
-                  jobsExtracted: data.payload.jobsExtracted,
-                  jobsScored: data.payload.jobsScored
-                })
-              }
               break
 
             case 'job':
@@ -170,7 +136,6 @@ export function useSSE(searchId: string, token: string): UseSSEReturn {
     iterationCount,
     jobs,
     sitesSearched,
-    progress,
     isConnected,
     error
   }

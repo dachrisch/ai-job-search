@@ -378,6 +378,7 @@ export const eventHandlers = {
         company.status = 'failed'
         await company.save()
       }
+      await emitPipelineEvent(data.searchId, 'crawl_failed', 'error', `Failed to crawl ${data.companyName}: ${error.message}`, undefined, { companyName: data.companyName, error: error.message }, sseManager)
     }
   },
 
@@ -432,6 +433,8 @@ export const eventHandlers = {
 
       if (jobsStored > 0) {
         await emitPipelineEvent(data.searchId, 'jobs_filtered', 'result', `Keyword filter: ${jobsStored}/${data.jobs.length} jobs passed`, undefined, { stored: jobsStored, total: data.jobs.length }, sseManager)
+      } else if (data.jobs.length > 0) {
+        await emitPipelineEvent(data.searchId, 'jobs_filtered', 'result', `Keyword filter: 0/${data.jobs.length} jobs passed — all rejected`, undefined, { stored: 0, total: data.jobs.length }, sseManager)
       }
 
       // Validate and discover new companies
