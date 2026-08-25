@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/dachrisch/ai-job-search/compare/v0.10.0...v0.10.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* pass SSE manager through SearchSourceManager for pipeline events ([d20496d](https://github.com/dachrisch/ai-job-search/commit/d20496dbea0db1ab0ddbbc2650fb629fc2876042))
+* pass SSE manager through SearchSourceManager for pipeline events ([b0b9759](https://github.com/dachrisch/ai-job-search/commit/b0b975940b72ddf502d5efe348dcab7b53a8f242))
+
 ## [0.10.0](https://github.com/dachrisch/ai-job-search/compare/v0.9.0...v0.10.0) (2026-08-25)
 
 
