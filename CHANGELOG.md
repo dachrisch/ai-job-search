@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/dachrisch/ai-job-search/compare/v0.8.35...v0.9.0) (2026-08-25)
+
+
+### Features
+
+* replace Claude with opencode + hidden-gem discovery ([0fe9fc6](https://github.com/dachrisch/ai-job-search/commit/0fe9fc69530e2f8b10a0581d997dd956e4632629))
+* replace Claude with opencode + hidden-gem discovery ([0b2592b](https://github.com/dachrisch/ai-job-search/commit/0b2592b61447a40d9f9aadd7267c1e3eec0846af))
+
 ## [0.8.35](https://github.com/dachrisch/ai-job-search/compare/v0.8.34...v0.8.35) (2026-08-24)
 
 
