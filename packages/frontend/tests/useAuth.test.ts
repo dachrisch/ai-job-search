@@ -11,31 +11,30 @@ describe('useAuth', () => {
     vi.clearAllMocks()
   })
 
-  it('stores hasClaudeToken from the login response', async () => {
+  it('stores userId and token from the login response', async () => {
     ;(axios.post as any).mockResolvedValue({
-      data: { userId: 'u1', token: 't1', hasClaudeToken: true },
+      data: { userId: 'u1', token: 't1' },
     })
     const { result } = renderHook(() => useAuth())
     await act(async () => {
       await result.current.login('a@b.com', 'pw')
     })
-    expect(result.current.hasClaudeToken).toBe(true)
-    expect(JSON.parse(localStorage.getItem('auth')!).hasClaudeToken).toBe(true)
+    expect(result.current.isAuthenticated).toBe(true)
+    expect(JSON.parse(localStorage.getItem('auth')!)).toMatchObject({ userId: 'u1', token: 't1' })
   })
 
-  it('flips hasClaudeToken to true after setClaudeToken succeeds', async () => {
+  it('logs out and clears localStorage', async () => {
     ;(axios.post as any).mockResolvedValue({
-      data: { userId: 'u1', token: 't1', hasClaudeToken: false },
+      data: { userId: 'u1', token: 't1' },
     })
     const { result } = renderHook(() => useAuth())
     await act(async () => {
       await result.current.login('a@b.com', 'pw')
     })
-    expect(result.current.hasClaudeToken).toBe(false)
-    ;(axios.post as any).mockResolvedValue({ data: { success: true } })
-    await act(async () => {
-      await result.current.setClaudeToken('sk-123')
+    act(() => {
+      result.current.logout()
     })
-    expect(result.current.hasClaudeToken).toBe(true)
+    expect(result.current.isAuthenticated).toBe(false)
+    expect(localStorage.getItem('auth')).toBeNull()
   })
 })

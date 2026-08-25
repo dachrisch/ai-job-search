@@ -21,7 +21,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       userId,
       query,
       status: 'running',
-      claudeConversationHistory: [],
+      conversationHistory: [],
       foundJobs: [],
       sitesSearched: [],
       iterationCount: 0,

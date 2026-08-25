@@ -5,17 +5,17 @@ import { AuthResponse } from '@job-search/shared'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 
-export async function registerUser(email: string, password: string, claudeApiToken?: string): Promise<AuthResponse> {
+export async function registerUser(email: string, password: string): Promise<AuthResponse> {
   const existing = await UserModel.findOne({ email })
   if (existing) {
     throw new Error('Email already exists')
   }
 
   const passwordHash = await bcrypt.hash(password, 10)
-  const user = await UserModel.create({ email, passwordHash, claudeApiToken })
+  const user = await UserModel.create({ email, passwordHash })
 
   const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
-  return { userId: user._id.toString(), token, hasClaudeToken: !!claudeApiToken }
+  return { userId: user._id.toString(), token }
 }
 
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
@@ -30,7 +30,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   }
 
   const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
-  return { userId: user._id.toString(), token, hasClaudeToken: !!user.claudeApiToken }
+  return { userId: user._id.toString(), token }
 }
 
 export function verifyToken(token: string): { userId: string; email: string } {
@@ -40,28 +40,4 @@ export function verifyToken(token: string): { userId: string; email: string } {
   } catch {
     throw new Error('Invalid token')
   }
-}
-
-export async function setClaudeToken(userId: string, token: string): Promise<void> {
-  // Validate the token before storing (supports both API keys and OAuth tokens)
-  try {
-    const { buildAnthropicClient } = await import('../claude/auth.js')
-    const client = buildAnthropicClient(token)
-    await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 10,
-      messages: [{ role: 'user', content: 'ping' }]
-    })
-  } catch (err) {
-    const error = err as any
-    if (error.status === 401) {
-      throw new Error('Invalid Claude token. Please check your API key or OAuth token and try again.')
-    }
-    // 429 rate-limit means the token is valid but temporarily throttled — accept it
-    if (error.status !== 429) {
-      throw new Error(`Failed to validate Claude token: ${error.message}`)
-    }
-  }
-
-  await UserModel.findByIdAndUpdate(userId, { claudeApiToken: token })
 }

@@ -5,7 +5,6 @@ const userSchema = new Schema<User>(
   {
     email: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true },
-    claudeApiToken: { type: String },
   },
   { timestamps: true }
 )
@@ -62,6 +61,9 @@ const companySchema = new Schema<Company>(
     },
     crawlAttempts: { type: Number, default: 0 },
     lastCrawlTime: { type: Date },
+    hiddenGemScore: { type: Number, min: 0, max: 100 },
+    sizeBand: { type: String, enum: ['small', 'medium', 'large', 'unknown'] },
+    sizeSignals: [String],
   },
   { timestamps: true }
 )
@@ -76,7 +78,7 @@ const searchSessionSchema = new Schema<SearchSession>(
     searchQueries: [String],
     discoveredPages: [String],
     scrapedPages: [String],
-    claudeConversationHistory: [
+    conversationHistory: [
       {
         role: { type: String, enum: ['user', 'assistant'], required: true },
         content: { type: String, required: true },

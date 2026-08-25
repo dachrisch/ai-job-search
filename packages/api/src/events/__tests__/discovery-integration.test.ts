@@ -8,7 +8,7 @@ import { SearchSourceManager } from '../../search-sources/searxng-source.js'
 
 // Mock the external dependencies
 vi.mock('../../search-sources/searxng-source.js')
-vi.mock('../../claude/client.js')
+vi.mock('../../ai/llm.js')
 vi.mock('../../events/queue.js')
 
 describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
@@ -52,7 +52,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
         status: 'running',
         iterationCount: 0,
         startedAt: new Date(),
-        claudeConversationHistory: [],
+        conversationHistory: [],
         foundJobs: [],
         sitesSearched: [],
       })
@@ -124,7 +124,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
         status: 'running',
         iterationCount: 0,
         startedAt: new Date(),
-        claudeConversationHistory: [],
+        conversationHistory: [],
         foundJobs: [],
         sitesSearched: [],
       })
@@ -167,7 +167,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
         status: 'running',
         iterationCount: 0,
         startedAt: new Date(),
-        claudeConversationHistory: [],
+        conversationHistory: [],
         foundJobs: [],
         sitesSearched: [],
       })
@@ -238,7 +238,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
         status: 'running',
         iterationCount: 0,
         startedAt: new Date(),
-        claudeConversationHistory: [],
+        conversationHistory: [],
         foundJobs: [],
         sitesSearched: [],
       })
@@ -285,7 +285,7 @@ describe.skipIf(process.env.CI === 'true')('Discovery Integration Flow', () => {
         status: 'running',
         iterationCount: 0,
         startedAt: new Date(),
-        claudeConversationHistory: [],
+        conversationHistory: [],
         foundJobs: [],
         sitesSearched: [],
       })

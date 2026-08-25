@@ -1,7 +1,7 @@
 import axios from 'axios'
-import { SearchSessionModel, JobModel, SiteModel, CompanyModel, UserModel } from '../db/models.js'
+import { SearchSessionModel, JobModel, SiteModel, CompanyModel } from '../db/models.js'
 import { addEvent } from './queue.js'
-import { callClaude } from '../claude/client.js'
+import { callLLM, callLLMJson } from '../ai/llm.js'
 import { SSEManager } from '../utils/SSEManager.js'
 import { JobSourceManager } from '../job-sources/manager.js'
 import { SearchService } from '../job-sources/search-service.js'
@@ -24,17 +24,6 @@ export const eventHandlers = {
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
-        return
-      }
-
-      // Get user's Claude API token
-      const user = await UserModel.findById(data.userId)
-      if (!user || !user.claudeApiToken) {
-        console.error('User or Claude API token not found')
-        await addEvent('search_failed', {
-          searchId: data.searchId,
-          error: 'Claude API token not configured'
-        })
         return
       }
 
@@ -72,9 +61,9 @@ export const eventHandlers = {
       }
       console.log(`   ✅ Tier-1 sources stored ${apiJobsStored} jobs`)
 
-      // Use SearchSourceManager to discover companies via SearXNG
-      console.log(`   🔍 Discovering companies via SearchSourceManager...`)
-      const searchSourceManager = new SearchSourceManager(user.claudeApiToken)
+      // Use SearchSourceManager to discover companies via SearXNG + opencode
+      console.log(`   🔍 Discovering hidden-gem companies via SearchSourceManager...`)
+      const searchSourceManager = new SearchSourceManager()
       const companies = await searchSourceManager.discoverCompanies(data.searchId, data.query)
 
       console.log(`   ✅ Found ${companies.length} companies`)
@@ -100,7 +89,10 @@ export const eventHandlers = {
           url: c.url,
           name: c.name,
           discoveredFrom: 'searxng',
-          confidence: c.confidence
+          confidence: c.confidence,
+          hiddenGemScore: c.hiddenGemScore,
+          sizeBand: c.sizeBand,
+          sizeSignals: c.sizeSignals
         })),
         userQuery: data.query
       })
@@ -114,7 +106,19 @@ export const eventHandlers = {
   },
 
   companies_discovered: async (
-    data: { searchId: string; companies: Array<{ url: string; name: string; discoveredFrom: string; confidence: 'high' | 'medium' | 'low' }>; userQuery: string },
+    data: {
+      searchId: string
+      companies: Array<{
+        url: string
+        name: string
+        discoveredFrom: string
+        confidence: 'high' | 'medium' | 'low'
+        hiddenGemScore?: number
+        sizeBand?: 'small' | 'medium' | 'large' | 'unknown'
+        sizeSignals?: string[]
+      }>
+      userQuery: string
+    },
     sseManager: SSEManager
   ) => {
     try {
@@ -138,6 +142,9 @@ export const eventHandlers = {
               discoveredFrom: company.discoveredFrom,
               searchQuery: data.userQuery,
               confidence: company.confidence,
+              hiddenGemScore: company.hiddenGemScore,
+              sizeBand: company.sizeBand,
+              sizeSignals: company.sizeSignals,
               status: 'pending_crawl',
               crawlAttempts: 0
             }
@@ -189,9 +196,8 @@ export const eventHandlers = {
         return
       }
 
-      // Use Claude to extract and validate companies
+      // Use opencode to extract and validate companies
       const companies = await validateAndExtractCompanies(
-        session.userId,
         data.query,
         data.searchResults
       )
@@ -416,7 +422,6 @@ export const eventHandlers = {
       let companiesDiscovered = 0
       if (data.discoveredCompanies.length > 0) {
         const validated = await validateAndExtractCompanies(
-          session.userId,
           session.query,
           data.discoveredCompanies
         )
@@ -517,21 +522,9 @@ Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "rea
 Jobs to score:
 ${jobDetails}`
 
-      let scores: any[] = []
-      try {
-        const response = await callClaude(session.userId, prompt)
-        const match = response.match(/\{[\s\S]*\}/)
-        const parsed = JSON.parse(match ? match[0] : response)
-        scores = parsed.scores || []
-      } catch (error) {
-        console.warn('Claude scoring failed, assigning default scores:', error)
-        // Assign default score on error
-        scores = jobs.map(j => ({
-          jobId: j._id.toString(),
-          matchScore: 50,
-          reasoning: 'Default score due to scoring error'
-        }))
-      }
+      // Score jobs via opencode; a failure bubbles up to search_failed
+      const parsed = await callLLMJson<{ scores: any[] }>(prompt)
+      const scores = parsed.scores || []
 
       // Update each job with score
       for (const scoreData of scores) {
@@ -646,8 +639,7 @@ ${jobDetails}`
       const pageAnalyzer = new PageAnalyzer()
       const analyzedPages = await pageAnalyzer.analyzePages(
         data.results,
-        data.query,
-        session.userId
+        data.query
       )
 
       console.log(`   ✅ Pages prioritized: ${analyzedPages.length}`)
@@ -690,14 +682,14 @@ ${jobDetails}`
 
         Respond with ONLY one of: COMPLETE, REFINE, or DEEPEN`
 
-      const claudeResponse = await callClaude(session.userId, prompt)
-      session.claudeConversationHistory.push(
+      const opencodeResponse = await callLLM(prompt)
+      session.conversationHistory.push(
         { role: 'user', content: prompt },
-        { role: 'assistant', content: claudeResponse }
+        { role: 'assistant', content: opencodeResponse }
       )
       await session.save()
 
-      const decision = claudeResponse.toUpperCase().trim()
+      const decision = opencodeResponse.toUpperCase().trim()
 
       if (decision.includes('COMPLETE') || data.jobsFound >= 30) {
         await addEvent('search_complete', { searchId: data.searchId })
@@ -706,7 +698,7 @@ ${jobDetails}`
           Original search: "${session.query}"
           Return ONLY the new keywords, nothing else.`
 
-        const newKeywords = await callClaude(session.userId, refinementPrompt)
+        const newKeywords = await callLLM(refinementPrompt)
         await addEvent('search_refined', {
           searchId: data.searchId,
           claudeResponse: newKeywords.trim()
@@ -948,14 +940,13 @@ ${jobDetails}`
         return
       }
 
-      // Extract new sites from Claude response
-      const prompt = `From your previous response, please extract the specific websites to search next in JSON format: {sites: ["domain.com"]}`
-      const response = await callClaude(session.userId, prompt)
-      const parsed = JSON.parse(response)
+      // Extract new sites from opencode response
+      const prompt = `From your previous response, please extract the specific websites to search next in JSON format: {"sites": ["domain.com"]}`
+      const parsed = await callLLMJson<{ sites: string[] }>(prompt)
 
-      session.claudeConversationHistory.push(
+      session.conversationHistory.push(
         { role: 'user', content: prompt },
-        { role: 'assistant', content: response }
+        { role: 'assistant', content: JSON.stringify(parsed) }
       )
       await session.save()
 
@@ -997,14 +988,14 @@ ${jobDetails}`
       // Get all jobs for this search
       const jobs = await JobModel.find({ searchSessionId: data.searchId })
 
-      // Ask Claude to rank and score jobs
+      // Ask opencode to rank and score jobs
       const jobDetails = jobs.map(j => `${j.title} at ${j.company} in ${j.location}`).join('\n')
       const rankingPrompt = `Rank these jobs by how well they match "${session.query}". For each, give a score 0-100 and brief reasoning:\n${jobDetails}`
 
-      const ranking = await callClaude(session.userId, rankingPrompt)
+      const ranking = await callLLM(rankingPrompt)
 
       // Parse ranking and update jobs (simplified parsing)
-      session.claudeConversationHistory.push(
+      session.conversationHistory.push(
         { role: 'user', content: rankingPrompt },
         { role: 'assistant', content: ranking }
       )

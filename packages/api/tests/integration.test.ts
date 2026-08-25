@@ -51,25 +51,7 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)('Integration Tests', () => {
     token = response.data.token
   })
 
-  it.skip('Test 2: Set Claude token - should succeed with Bearer auth', async () => {
-    const client = createClient()
-    const claudeToken = 'sk-ant-test-token-' + Date.now()
-
-    const response = await client.post(
-      '/auth/set-claude-token',
-      { claudeToken },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    )
-
-    expect(response.status).toBe(200)
-    expect(response.data.success).toBe(true)
-  })
-
-  it('Test 3: Create a search - should return searchId with running status', async () => {
+  it('Test 2: Create a search - should return searchId with running status', async () => {
     const client = createClient()
     const response = await client.post(
       '/searches',

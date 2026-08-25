@@ -1,6 +1,11 @@
+import { describe, it, expect, vi } from 'vitest'
 import { SearchService } from '../search-service'
 import { PageAnalyzer } from '../page-analyzer'
 import { SearchResult } from '../interfaces'
+
+vi.mock('../../ai/llm.js')
+
+import { callLLMJson } from '../../ai/llm.js'
 
 describe('Job Discovery Integration', () => {
   it('should handle empty search results with fallback', async () => {
@@ -11,6 +16,11 @@ describe('Job Discovery Integration', () => {
   })
 
   it('should prioritize relevant pages correctly', async () => {
+    vi.mocked(callLLMJson).mockResolvedValue([
+      { urlIndex: 1, confidence: 0.95, priority: 10, reason: 'Job board' },
+      { urlIndex: 2, confidence: 0.1, priority: 2, reason: 'Blog post' },
+    ])
+
     const pageAnalyzer = new PageAnalyzer()
     const testResults: SearchResult[] = [
       {

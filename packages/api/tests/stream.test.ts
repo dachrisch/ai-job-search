@@ -50,7 +50,7 @@ describe('Stream Endpoint', () => {
       iterationCount: 0,
       foundJobs: [],
       sitesSearched: [],
-      claudeConversationHistory: [],
+      conversationHistory: [],
       startedAt: new Date()
     } as any)
 
@@ -85,7 +85,7 @@ describe('Stream Endpoint', () => {
       iterationCount: 0,
       foundJobs: [],
       sitesSearched: [],
-      claudeConversationHistory: [],
+      conversationHistory: [],
       startedAt: new Date()
     } as any)
 
@@ -124,7 +124,7 @@ describe('Stream Endpoint', () => {
       iterationCount: 2,
       foundJobs: ['job1'],
       sitesSearched: ['linkedin.com'],
-      claudeConversationHistory: [],
+      conversationHistory: [],
       startedAt: new Date()
     } as any)
 
@@ -175,7 +175,7 @@ describe('Stream Endpoint', () => {
       iterationCount: 0,
       foundJobs: [],
       sitesSearched: [],
-      claudeConversationHistory: [],
+      conversationHistory: [],
       startedAt: new Date()
     } as any)
 

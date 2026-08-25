@@ -7,7 +7,7 @@ vi.mock('../src/hooks/useSSE', () => ({
 }))
 // SearchProgress fetches on mount; stub global fetch so it doesn't error.
 beforeEach(() => {
-  localStorage.setItem('auth', JSON.stringify({ userId: 'u1', token: 't1', hasClaudeToken: true }))
+  localStorage.setItem('auth', JSON.stringify({ userId: 'u1', token: 't1' }))
   global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'running' }) }) as any
 })
 

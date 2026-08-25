@@ -35,13 +35,13 @@ This document tracks the implementation status of features across the entire pla
 - **Tests:** Integration tested
 - **Known Issues:** None
 
-### Claude API Token Management
+### AI Backend (opencode)
 - **Status:** ✅ IMPLEMENTED
 - **Details:**
-  - Users can store their Claude API key via `/api/auth/set-claude-token`
-  - Token stored encrypted in MongoDB (plaintext in current implementation ⚠️)
-  - Required for AI-powered search refinement
-  - Per-user token isolation
+  - Shared opencode agent API (`opencode.lehel.xyz`) with `OPENCODE_API_KEY`
+  - Key managed in the servyy-container infra repo (deploy-time injection)
+  - Used for hidden-gem company discovery, classification, scoring, and job ranking
+  - No per-user token flow required
 - **Tests:** Unit tested
 - **Security Note:** Current implementation stores tokens in plaintext; should be encrypted in production
 
@@ -76,7 +76,7 @@ This document tracks the implementation status of features across the entire pla
   - Accepts user query string
   - Returns search ID and initial "running" status
   - Emits `search_started` event to BullMQ queue
-  - Stores conversation history for multi-turn Claude interactions
+  - Stores conversation history for search orchestration
 - **Tests:** Integration tested
 - **Performance:** No rate limiting (⏳ TODO)
 
@@ -104,7 +104,7 @@ This document tracks the implementation status of features across the entire pla
 ### Search Completion Criteria
 - **Status:** ✅ IMPLEMENTED
 - **Details:**
-  - Claude evaluates whether to continue searching
+  - opencode evaluates whether to continue searching
   - Completion triggers when:
     - 30+ jobs found, OR
     - Claude decides "COMPLETE", OR
@@ -116,15 +116,15 @@ This document tracks the implementation status of features across the entire pla
 
 ## AI-Powered Search Refinement
 
-### Claude Multi-Turn Conversation
+### opencode-Driven Discovery
 - **Status:** ✅ IMPLEMENTED
 - **Details:**
-  - Maintains conversation history with Claude 3.5 Sonnet
-  - Stores full conversation in SearchSession.claudeConversationHistory
-  - Multi-round interactions for search refinement
-  - User's Claude API token used for all API calls
+  - opencode agent proposes diverse SearXNG queries biased toward hidden-gem employers
+  - Backend executes paginated SearXNG searches; agent classifies + scores career pages (hiddenGemScore, sizeBand, sizeSignals)
+  - Bounded refinement rounds then agent prioritizes crawl candidates
+  - Jobs scored/ranked via opencode (model `mimo-v2.5-free`, fallback `big-pickle`)
 - **Tests:** Unit tested
-- **Model:** Claude 3.5 Sonnet (configurable via ANTHROPIC_MODEL env var)
+- **Model:** opencode model overridable via `OPENCODE_MODEL` / `OPENCODE_FALLBACK_MODEL`
 
 ### Initial Query Analysis
 - **Status:** ✅ IMPLEMENTED

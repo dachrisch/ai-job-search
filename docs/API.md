@@ -76,38 +76,6 @@ Authenticates user and returns JWT token.
 
 ---
 
-#### Set Claude API Token
-
-**POST** `/auth/set-claude-token`
-
-Store user's Claude API token for AI-powered search.
-
-**Required Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Request:**
-```json
-{
-  "claudeApiToken": "sk-ant-v1-abc123xyz..."
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "Claude token updated"
-}
-```
-
-**Error Responses:**
-- `401` - Unauthorized (missing or invalid token)
-- `400` - Missing claudeApiToken
-
----
-
 ### Search
 
 All search endpoints require authentication.

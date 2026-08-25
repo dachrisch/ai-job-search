@@ -260,26 +260,7 @@ create_test_user() {
     local TEST_EMAIL="test@example.com"
     local TEST_PASSWORD="TestPassword123!"
 
-    # Read OAuth token from Claude Code credentials
-    local CLAUDE_OAUTH_TOKEN
-    CLAUDE_OAUTH_TOKEN=$(python3 -c "
-import json, sys
-try:
-    with open('$HOME/.claude/.credentials.json') as f:
-        d = json.load(f)
-    print(d['claudeAiOauth']['accessToken'])
-except Exception as e:
-    pass
-" 2>/dev/null || true)
-
-    if [ -z "$CLAUDE_OAUTH_TOKEN" ]; then
-        log_warn "No Claude OAuth token found in ~/.claude/.credentials.json"
-        log_warn "Claude API calls will fail until a valid token is set in the app settings"
-    else
-        log_info "Found OAuth token from Claude Code credentials"
-    fi
-
-    # Create user with fresh password hash and OAuth token
+    # Create user with fresh password hash
     cd "$PROJECT_ROOT"
     node -e "
 const mongoose = require('mongoose');
@@ -288,7 +269,6 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
-  claudeApiToken: { type: String },
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema, 'users');
@@ -299,10 +279,6 @@ mongoose.connect('mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search').then(async 
   const passwordHash = await bcrypt.hash('$TEST_PASSWORD', 10);
   const userData = { email: '$TEST_EMAIL', passwordHash };
 
-  // Attach OAuth token if available
-  const oauthToken = '$CLAUDE_OAUTH_TOKEN';
-  if (oauthToken) userData.claudeApiToken = oauthToken;
-
   await User.create(userData);
   process.exit(0);
 }).catch(err => {
@@ -312,11 +288,7 @@ mongoose.connect('mongodb://$SERVYY_TEST_IP:$MONGO_PORT/job_search').then(async 
 " 2>/dev/null || true
     cd - >/dev/null
 
-    if [ -n "$CLAUDE_OAUTH_TOKEN" ]; then
-        log_success "Test user account ready (with OAuth token)"
-    else
-        log_success "Test user account ready (no Claude token)"
-    fi
+    log_success "Test user account ready"
     TEST_USER_EMAIL="$TEST_EMAIL"
     TEST_USER_PASSWORD="$TEST_PASSWORD"
 }
@@ -329,13 +301,43 @@ setup_env_vars() {
     export REDIS_URL="redis://$SERVYY_TEST_IP:$REDIS_PORT"
     export SEARXNG_URL="https://search.lehel.xyz"
     export SEARXNG_TOKEN="searxng-1fb783a09636b75a906441f891ab7749"
+    export OPENCODE_BASE_URL="https://opencode.lehel.xyz"
     export NODE_ENV="development"
     export LOG_LEVEL="info"
+
+    # OPENCODE_API_KEY is owned by the sibling servyy-container infra repo
+    # (ansible/plays/vars/secrets.yml -> opencode.api_key, git-crypt locked).
+    # Read it from there automatically so dev matches production; fall back
+    # to an exported env var, and fail loudly if neither is available.
+    if [ -z "$OPENCODE_API_KEY" ]; then
+        local SERVYY_SECRETS="${PROJECT_ROOT}/../servyy-container/ansible/plays/vars/secrets.yml"
+        if [ -f "$SERVYY_SECRETS" ]; then
+            OPENCODE_API_KEY=$(python3 -c "
+import yaml, sys
+try:
+    with open('$SERVYY_SECRETS') as f:
+        d = yaml.safe_load(f)
+    print(d.get('opencode', {}).get('api_key', ''))
+except Exception:
+    pass
+" 2>/dev/null || true)
+        fi
+    fi
+
+    if [ -n "$OPENCODE_API_KEY" ]; then
+        export OPENCODE_API_KEY
+        log_success "OPENCODE_API_KEY loaded from servyy-container secrets"
+    else
+        log_warn "OPENCODE_API_KEY not found (export it or unlock servyy-container's git-crypt)"
+        log_warn "Opencode-backed discovery will fail at runtime"
+    fi
 
     log_success "Environment variables set:"
     echo "  MONGODB_URI=$MONGODB_URI"
     echo "  REDIS_URL=$REDIS_URL"
     echo "  SEARXNG_URL=$SEARXNG_URL"
+    echo "  OPENCODE_BASE_URL=$OPENCODE_BASE_URL"
+    echo "  OPENCODE_API_KEY=${OPENCODE_API_KEY:+<set>}"
 }
 
 # Step 7: Start API and Frontend in background
@@ -426,8 +428,7 @@ main() {
     echo "🚀 Getting Started:"
     echo "  1. Open: http://localhost:5173"
     echo "  2. Login with credentials above"
-    echo "  3. Add your Claude API key in settings"
-    echo "  4. Start searching for jobs!"
+    echo "  3. Start searching for jobs!"
     echo ""
     echo "📊 View logs:"
     echo "  tail -f $PROJECT_ROOT/packages/api/api.log"

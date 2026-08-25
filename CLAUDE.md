@@ -73,13 +73,13 @@ This is a **monorepo with 3 npm packages** following an **event-driven, AI-power
 
 ### High-Level Data Flow
 
-1. **User initiates search** (React frontend) → 2. **API creates search session** → 3. **Event emitted to BullMQ queue** → 4. **Claude AI refines search parameters** → 5. **Web crawler discovers jobs** → 6. **Claude AI ranks jobs** → 7. **Results returned to frontend**
+1. **User initiates search** (React frontend) → 2. **API creates search session** → 3. **Event emitted to BullMQ queue** → 4. **opencode agent proposes searches + classifies hidden-gem companies** → 5. **SearXNG + web crawler discover/extract jobs** → 6. **opencode scores and ranks jobs** → 7. **Results returned to frontend**
 
 ### Package Architecture
 
 | Package | Purpose | Key Tech | Entry Points |
 |---------|---------|----------|--------------|
-| **api** | Express.js backend, auth, search orchestration, event handlers | Express, MongoDB, BullMQ, Anthropic SDK | `src/index.ts` starts server on port 3000 |
+| **api** | Express.js backend, auth, search orchestration, event handlers | Express, MongoDB, BullMQ, opencode client | `src/index.ts` starts server on port 3000 |
 | **frontend** | React 19 web UI for search and results | React, TypeScript, Vite | `src/main.tsx` renders to `#app` |
 | **shared** | TypeScript type definitions used across api/frontend | TypeScript only | `src/types.ts` exports all types |
 
@@ -88,16 +88,17 @@ This is a **monorepo with 3 npm packages** following an **event-driven, AI-power
 The system uses asynchronous event processing to decouple frontend requests from long-running operations:
 
 - `search_started` → Triggered when user creates new search
-- `claude_analysis_complete` → AI has refined search parameters
-- `jobs_crawled` → Crawler extracted job listings
-- `jobs_ranked` → Claude ranked jobs by match score
+- `companies_discovered` → opencode-driven SearXNG discovery found company career pages
+- `crawl_company` → Crawler extracts jobs from a company page
+- `jobs_extracted` → opencode scores the extracted jobs
+- `results_ready_for_frontend` → Scored jobs broadcast over SSE
 
 Event handlers live in `packages/api/src/events/handlers.ts`. Search status is tracked in MongoDB's `SearchSession` collection.
 
 ### Key Models (MongoDB)
 
-- **User** - Auth credentials, Claude API token
-- **SearchSession** - Search queries, status, conversation history with Claude
+- **User** - Auth credentials
+- **SearchSession** - Search queries, status, conversation history
 - **Job** - Extracted jobs with match scores and reasoning
 - **Site** - Discovered job boards for crawler optimization
 
@@ -121,7 +122,8 @@ The API requires three external services (either Docker containers or remote):
 
 1. **MongoDB** - Stores all data (users, searches, jobs)
 2. **Redis** - Powers BullMQ event queue for background jobs
-3. **Claude API** - Requires `CLAUDE_API_KEY` in environment
+3. **opencode** - AI agent backend at `opencode.lehel.xyz`, requires `OPENCODE_API_KEY` (managed via the servyy-container infra repo)
+4. **SearXNG** - Web search at `search.lehel.xyz`, requires `SEARXNG_TOKEN`
 
 All three can be started with `docker-compose up -d` or are available on servyy-test.lxd.
 

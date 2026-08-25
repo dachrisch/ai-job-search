@@ -1,4 +1,4 @@
-import { callClaude } from '../claude/client.js'
+import { callLLMJson } from '../ai/llm.js'
 
 /**
  * Represents a company career page discovered by the utility
@@ -69,20 +69,18 @@ export function isValidUrl(urlString: string): boolean {
 
 /**
  * Validates and extracts company career pages from LLM response
- * Uses Claude to analyze search results and identify legitimate company career pages,
+ * Uses opencode to analyze search results and identify legitimate company career pages,
  * filtering out job aggregators and validating URLs
  *
- * @param userId The user ID for Claude API authentication
  * @param query The search query (e.g., "senior software engineer")
  * @param searchResults The search results to analyze
  * @returns Array of validated companies with career pages
  */
 export async function validateAndExtractCompanies(
-  userId: string,
   query: string,
   searchResults: any[]
 ): Promise<Company[]> {
-  // Build the prompt for Claude
+  // Build the prompt for opencode
   const searchResultsText =
     searchResults.length > 0
       ? searchResults
@@ -116,17 +114,8 @@ Only include companies where:
 Return only valid JSON, no additional text.`
 
   try {
-    // Call Claude to identify companies
-    const response = await callClaude(userId, prompt)
-
-    // Parse the JSON response
-    let parsedResponse: any
-    try {
-      parsedResponse = JSON.parse(response)
-    } catch {
-      // If JSON parsing fails, return empty array
-      return []
-    }
+    // Call opencode to identify companies
+    const parsedResponse = await callLLMJson<{ companies?: any[] }>(prompt)
 
     if (!parsedResponse.companies || !Array.isArray(parsedResponse.companies)) {
       return []
@@ -167,7 +156,7 @@ Return only valid JSON, no additional text.`
 
     return validatedCompanies
   } catch (error) {
-    // If the Claude call fails, return empty array
+    // If the opencode call fails, return empty array
     console.error('Error validating companies:', error)
     return []
   }

@@ -13,12 +13,11 @@ function Brand() {
 }
 
 export default function App() {
-  const { auth, register, login, setClaudeToken, logout, isAuthenticated, hasClaudeToken } = useAuth()
+  const { auth, register, login, logout, isAuthenticated } = useAuth()
   const [currentPage, setCurrentPage] = useState<AppPage>('auth')
   const [currentSearchId, setCurrentSearchId] = useState<string>('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [claudeApiKey, setClaudeApiKey] = useState('')
   const [error, setError] = useState('')
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -43,17 +42,6 @@ export default function App() {
     }
   }
 
-  const handleSetClaudeToken = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    try {
-      await setClaudeToken(claudeApiKey)
-      setCurrentPage('search')
-    } catch (err) {
-      setError('Failed to set Claude token: ' + (err instanceof Error ? err.message : 'Unknown error'))
-    }
-  }
-
   if (!isAuthenticated) {
     const isLogin = currentPage !== 'register'
     return (
@@ -74,27 +62,6 @@ export default function App() {
               {isLogin ? 'Need an account? Register' : 'Already have an account? Sign in'}
             </button>
           </form>
-        </div></div>
-        <Footer />
-      </div>
-    )
-  }
-
-  if (!hasClaudeToken) {
-    return (
-      <div className="app">
-        <div className="main"><div className="center-narrow">
-          <h1 className="display" style={{ fontSize: 28, marginBottom: 8 }}>Connect your Claude API key</h1>
-          <p className="subtitle" style={{ fontSize: 15, marginBottom: 24 }}>
-            Beacon uses your Claude key to search and rank jobs. It is stored securely and only asked for once.
-          </p>
-          {error && <div className="alert alert-error">{error}</div>}
-          <form onSubmit={handleSetClaudeToken}>
-            <input className="input" type="password" placeholder="Claude API Key (sk-...)" value={claudeApiKey}
-              onChange={e => setClaudeApiKey(e.target.value)} style={{ marginBottom: 14 }} />
-            <button type="submit" className="btn btn-primary btn-block">Save key</button>
-          </form>
-          <button onClick={logout} className="btn btn-ghost btn-block" style={{ marginTop: 10 }}>Sign out</button>
         </div></div>
         <Footer />
       </div>
