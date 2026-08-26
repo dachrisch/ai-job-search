@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.2](https://github.com/dachrisch/ai-job-search/compare/v0.11.1...v0.11.2) (2026-08-26)
+
+
+### Bug Fixes
+
+* implement pipeline reliability and job filtering phases ([fa36d70](https://github.com/dachrisch/ai-job-search/commit/fa36d70c4f6a7f5622edb116ff9377b1b2650696))
+* pipeline reliability + jobs actually appear (audit Phase 0 & 1) ([4851375](https://github.com/dachrisch/ai-job-search/commit/4851375fd3511ba5427aebfdd86bdb0790a011df))
+
 ## [0.11.1](https://github.com/dachrisch/ai-job-search/compare/v0.11.0...v0.11.1) (2026-08-26)
 
 
