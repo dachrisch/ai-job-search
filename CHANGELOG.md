@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/dachrisch/ai-job-search/compare/v0.11.0...v0.11.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* broadcast live SSE status updates during crawl and count all extracted jobs ([451fdfe](https://github.com/dachrisch/ai-job-search/commit/451fdfea3c2bcf319a35730db533f328082f7b63))
+
 ## [0.11.0](https://github.com/dachrisch/ai-job-search/compare/v0.10.1...v0.11.0) (2026-08-25)
 
 
