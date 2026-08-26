@@ -73,6 +73,7 @@ const searchSessionSchema = new Schema<SearchSession>(
     userId: { type: String, required: true, index: true },
     query: { type: String, required: true },
     status: { type: String, enum: ['running', 'complete', 'failed'], required: true },
+    failureReason: { type: String },
     // Discovery tracking fields
     searchPhase: { type: String, enum: ['initial', 'refined'], default: 'initial' },
     searchQueries: [String],
@@ -93,6 +94,7 @@ const searchSessionSchema = new Schema<SearchSession>(
     companiesCrawled: { type: Number, required: true, default: 0 },
     companiesRemaining: { type: Number, required: true, default: 0 },
     jobsExtracted: { type: Number, required: true, default: 0 },
+    jobsFilteredOut: { type: Number, required: true, default: 0 },
     jobsScored: { type: Number, required: true, default: 0 },
     currentCrawlBatch: { type: Number, required: true, default: 1 },
     expandedSearch: { type: Boolean, required: true, default: false },

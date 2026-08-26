@@ -36,11 +36,13 @@ export async function handleStreamConnect(
     const jobs = await JobModel.find({ searchSessionId: searchId })
     const syncPayload = {
       status: session.status,
+      failureReason: session.failureReason || null,
       iterationCount: session.iterationCount,
       companiesDiscovered: session.companiesDiscovered,
       companiesCrawled: session.companiesCrawled,
       companiesRemaining: session.companiesRemaining,
       jobsExtracted: session.jobsExtracted,
+      jobsFilteredOut: session.jobsFilteredOut,
       jobsScored: session.jobsScored,
       jobs: jobs.map(job => ({
         id: job._id.toString(),

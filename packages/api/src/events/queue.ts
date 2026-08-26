@@ -1,13 +1,30 @@
 import { Queue, Worker } from 'bullmq'
 import { SSEManager } from '../utils/SSEManager.js'
+import { SearchSessionModel } from '../db/models.js'
 
 const redisConnection = {
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 }
 
+// How many events the BullMQ worker processes in parallel. The pipeline used to
+// run with concurrency 1, which let a single slow/stuck search block every
+// other search. A modest concurrency keeps the queue flowing without saturating
+// the crawler/LLM services.
+const WORKER_CONCURRENCY = Number(process.env.QUEUE_WORKER_CONCURRENCY || 5)
+
+// Retry/backoff: transient failures (flaky crawler, opencode hiccup) should be
+// retried, but only a bounded number of times before the job lands in the
+// dead-letter queue so nothing is silently lost.
+const DEFAULT_JOB_ATTEMPTS = Number(process.env.QUEUE_JOB_ATTEMPTS || 3)
+const DEFAULT_BACKOFF = {
+  type: 'exponential' as const,
+  delay: 5000,
+}
+
 let eventQueue: Queue | null = null
+let deadLetterQueue: Queue | null = null
 let usingMemoryQueue = false
-let memoryQueueEvents: Array<{ type: string; data: any }> = []
+let memoryQueueEvents: Array<{ type: string; data: any; attempts: number }> = []
 let memoryQueueWorker: ReturnType<typeof setInterval> | null = null
 
 // Try to create a BullMQ queue with Redis
@@ -35,6 +52,14 @@ export async function initializeQueue() {
   console.log(`   REDIS_URL: ${process.env.REDIS_URL || 'not set'}`)
   eventQueue = await createQueue()
   if (eventQueue) {
+    try {
+      deadLetterQueue = new Queue('job-search-events-dlq', { connection: redisConnection as any })
+      await deadLetterQueue.waitUntilReady()
+      console.log('   DLQ initialized')
+    } catch (err: any) {
+      console.warn(`   ⚠️  DLQ unavailable (failed jobs will only be logged): ${err.message}`)
+      deadLetterQueue = null
+    }
     console.log('✅ Queue initialized successfully (BullMQ with Redis)')
   } else {
     console.error('❌ Queue failed to initialize - Redis unavailable')
@@ -51,7 +76,11 @@ export function getQueue() {
 export async function addEvent(eventType: string, data: any) {
   if (!usingMemoryQueue && eventQueue) {
     try {
-      const job = await eventQueue.add(eventType, data, { removeOnComplete: true })
+      const job = await eventQueue.add(eventType, data, {
+        removeOnComplete: true,
+        attempts: DEFAULT_JOB_ATTEMPTS,
+        backoff: DEFAULT_BACKOFF,
+      })
       console.log(`📤 Event queued: ${eventType} (Job ID: ${job.id})`)
       return job.id
     } catch (error: any) {
@@ -61,9 +90,57 @@ export async function addEvent(eventType: string, data: any) {
   } else {
     // In-memory queue: just store the event
     const id = `mem-${Date.now()}-${Math.random()}`
-    memoryQueueEvents.push({ type: eventType, data })
+    memoryQueueEvents.push({ type: eventType, data, attempts: DEFAULT_JOB_ATTEMPTS })
     console.log(`📤 Event queued to memory: ${eventType} (ID: ${id})`)
     return id
+  }
+}
+
+/**
+ * Moves a permanently failed job to the dead-letter queue so it can be
+ * inspected/requeued later instead of vanishing after retries are exhausted.
+ */
+async function moveToDeadLetter(job: any, err: Error): Promise<void> {
+  try {
+    if (!deadLetterQueue) return
+    await deadLetterQueue.add(job.name, {
+      ...job.data,
+      dlq: { originalJobId: job.id, attemptedAt: new Date(), error: err.message },
+    })
+    console.error(`📥 Moved failed job to DLQ: ${job.name} (Job ID: ${job.id})`)
+  } catch (dlqError: any) {
+    console.error(`❌ Failed to move job to DLQ (${job.name}):`, dlqError.message)
+  }
+}
+
+/**
+ * When a pipeline job exhausts its retries, the search it belongs to must not
+ * stay `running` forever — surface a stored failure reason and an SSE error.
+ */
+async function markSessionFailed(job: any, err: Error, sseManager: SSEManager | null): Promise<void> {
+  const searchId = job?.data?.searchId
+  if (!searchId) return
+  const reason = `Pipeline job "${job.name}" failed: ${err.message}`
+  try {
+    const session = await SearchSessionModel.findById(searchId)
+    if (session && session.status === 'running') {
+      session.status = 'failed'
+      session.failureReason = reason
+      await session.save()
+      console.error(`🚨 Marked session ${searchId} as failed after ${job.name} exhausted retries`)
+      if (sseManager) {
+        sseManager.broadcast(searchId, {
+          type: 'error',
+          payload: { message: reason, searchStatus: 'failed' },
+        })
+        sseManager.broadcast(searchId, {
+          type: 'status',
+          payload: { status: 'failed' },
+        })
+      }
+    }
+  } catch (dbErr) {
+    console.error(`Failed to mark session ${searchId} failed after ${job.name}:`, dbErr)
   }
 }
 
@@ -73,7 +150,7 @@ export function registerEventHandlers(handlers: Record<string, (data: any, sseMa
     console.log('🚀 Starting BullMQ worker for event processing...')
 
     const worker = new Worker('job-search-events', async (job) => {
-      console.log(`\n⚙️  Processing event: ${job.name} (Job ID: ${job.id})`)
+      console.log(`\n⚙️  Processing event: ${job.name} (Job ID: ${job.id}, attempt ${job.attemptsMade + 1})`)
       const handler = handlers[job.name]
       if (handler) {
         try {
@@ -81,13 +158,13 @@ export function registerEventHandlers(handlers: Record<string, (data: any, sseMa
           console.log(`✅ Event completed: ${job.name}`)
         } catch (error) {
           console.error(`❌ Handler error for ${job.name}:`, error)
-          throw error // Re-throw so BullMQ marks job as failed
+          throw error // Re-throw so BullMQ marks job as failed and applies retry/backoff
         }
       } else {
         console.warn(`⚠️  No handler registered for event: ${job.name}`)
         throw new Error(`No handler for event type: ${job.name}`)
       }
-    }, { connection: redisConnection as any })
+    }, { connection: redisConnection as any, concurrency: WORKER_CONCURRENCY })
 
     worker.on('ready', () => {
       console.log('✅ BullMQ worker is ready and listening for jobs')
@@ -98,7 +175,14 @@ export function registerEventHandlers(handlers: Record<string, (data: any, sseMa
     })
 
     worker.on('failed', (job, err) => {
-      console.error(`❌ Event failed: ${job?.name}`, err?.message)
+      const attempts = job?.attemptsMade ?? 0
+      const maxAttempts = job?.opts?.attempts ?? DEFAULT_JOB_ATTEMPTS
+      console.error(`❌ Event failed: ${job?.name} (attempt ${attempts}/${maxAttempts})`, err?.message)
+      // Only dead-letter when retries are exhausted — transient failures get retried.
+      if (job && attempts >= maxAttempts) {
+        moveToDeadLetter(job, err)
+        markSessionFailed(job, err, sseManager)
+      }
     })
 
     worker.on('error', (err) => {
@@ -124,8 +208,14 @@ export function registerEventHandlers(handlers: Record<string, (data: any, sseMa
             try {
               await handler(event.data, sseManager)
               console.log(`Event processed: ${event.type}`)
-            } catch (err) {
-              console.error(`Event failed: ${event.type}`, err)
+            } catch (err: any) {
+              event.attempts -= 1
+              if (event.attempts > 0) {
+                console.error(`Event retrying (${event.attempts} left): ${event.type}`, err?.message)
+                memoryQueueEvents.push(event)
+              } else {
+                console.error(`Event failed permanently: ${event.type}`, err?.message)
+              }
             }
           } else {
             console.warn(`No handler for event: ${event.type}`)

@@ -8,13 +8,22 @@ import { SearchService } from '../job-sources/search-service.js'
 import { PageAnalyzer } from '../job-sources/page-analyzer.js'
 import { SearchResult, AnalyzedPage } from '../job-sources/interfaces.js'
 import { validateAndExtractCompanies } from '../utils/company-discovery.js'
-import { calculateKeywordMatch, passesKeywordThreshold } from '../utils/job-matcher.js'
+import { calculateKeywordMatch, passesKeywordThreshold, KeywordMatchResult } from '../utils/job-matcher.js'
 import { SearchSourceManager } from '../search-sources/searxng-source.js'
 import { SourceManager } from '../sources/manager.js'
 import { ArbeitsagenturSource } from '../sources/arbeitsagentur-source.js'
 import { emitPipelineEvent } from '../utils/pipeline.js'
 
 const jobSourceManager = new JobSourceManager()
+
+/**
+ * True when a session is still in the runnable `running` state. Handlers use
+ * this to bail out early when a search was already marked complete/failed
+ * (e.g. by the sweeper or a previous queue retry) so work isn't redone.
+ */
+function isSessionActive(session: any): boolean {
+  return !!session && session.status === 'running'
+}
 
 function broadcastSessionStatus(session: any, sseManager: SSEManager): void {
   if (!sseManager) return
@@ -27,6 +36,7 @@ function broadcastSessionStatus(session: any, sseManager: SSEManager): void {
       companiesCrawled: session.companiesCrawled,
       companiesRemaining: session.companiesRemaining,
       jobsExtracted: session.jobsExtracted,
+      jobsFilteredOut: session.jobsFilteredOut,
       jobsScored: session.jobsScored,
       expandedSearch: session.expandedSearch,
     },
@@ -44,6 +54,11 @@ export const eventHandlers = {
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping discovery`)
         return
       }
 
@@ -157,6 +172,11 @@ export const eventHandlers = {
         return
       }
 
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping company storage`)
+        return
+      }
+
       // Store each company in MongoDB (upsert by URL to handle re-discovered companies)
       const createdCompanies = []
       for (const company of data.companies) {
@@ -264,6 +284,11 @@ export const eventHandlers = {
         return
       }
 
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping company storage`)
+        return
+      }
+
       // Create Company documents in database (upsert by URL to handle re-discovered companies)
       const createdCompanies = []
       for (const company of data.companies) {
@@ -318,6 +343,11 @@ export const eventHandlers = {
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
         console.warn('Session not found:', data.searchId)
+        return
+      }
+
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping crawl batch`)
         return
       }
 
@@ -416,6 +446,11 @@ export const eventHandlers = {
         return
       }
 
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping job storage`)
+        return
+      }
+
       // Update company status: unsupported if the crawl found nothing extractable, crawled otherwise
       const company = await CompanyModel.findById(data.companyId)
       if (company) {
@@ -424,18 +459,49 @@ export const eventHandlers = {
         await company.save()
       }
 
-      // Store jobs that pass keyword threshold
-      let jobsStored = 0
+      // Store jobs that pass keyword threshold. Each job is handled in isolation —
+      // a single malformed entry must not fail the whole search (A3).
+      const evaluated: Array<{ job: any; keywordMatch: KeywordMatchResult; invalid?: boolean }> = []
       for (const job of data.jobs) {
-        const keywordMatch = calculateKeywordMatch(
-          job.title,
-          session.query,
-          job.description
-        )
+        try {
+          evaluated.push({
+            job,
+            keywordMatch: calculateKeywordMatch(job.title, session.query, job.description),
+          })
+        } catch (jobError) {
+          console.warn(`Skipping job with unparseable title from ${company?.name || data.companyId}:`, jobError)
+          evaluated.push({ job, keywordMatch: { score: 0, reasoning: 'Unparseable job entry' }, invalid: true })
+        }
+      }
 
-        // Only store if passes threshold (0.4)
-        if (passesKeywordThreshold(keywordMatch.score, 0.4)) {
-          const savedJob = await JobModel.create({
+      const passing = evaluated.filter(c => !c.invalid && passesKeywordThreshold(c.keywordMatch.score, 0.4))
+
+      // Keyword filtering on mixed DE/EN listings is inherently lossy (B1). When
+      // nothing passes the filter, fall back to storing all crawled jobs so the
+      // LLM scorer — not a naive substring check — is the real relevance judge.
+      const fallbackUnfiltered = passing.length === 0 && evaluated.length > 0
+      const selected = fallbackUnfiltered ? evaluated : passing
+      // Number of jobs dropped by the keyword filter (0 in fallback mode since
+      // everything is stored). Tracked separately so stats reflect reality (B2).
+      const filterRejected = fallbackUnfiltered ? 0 : evaluated.length - passing.length
+
+      let jobsStored = 0
+      let jobsSkipped = 0 // invalid/duplicate jobs that could not be persisted
+      for (const { job, keywordMatch } of selected) {
+        try {
+          // Dedup within the session by URL (there is no global unique index).
+          // Only when a URL is present — a url-less job can never match another.
+          if (job.url) {
+            const exists = await JobModel.findOne({
+              searchSessionId: session._id.toString(),
+              url: job.url,
+            })
+            if (exists) {
+              jobsSkipped++
+              continue
+            }
+          }
+          await JobModel.create({
             ...job,
             searchSessionId: session._id.toString(),
             companyId: data.companyId,
@@ -446,16 +512,15 @@ export const eventHandlers = {
             discoveredAt: new Date()
           })
           jobsStored++
+        } catch (jobError) {
+          console.warn(`Skipping invalid job from ${company?.name || data.companyId}:`, jobError)
+          jobsSkipped++
         }
       }
 
-      console.log(`   ✅ Stored ${jobsStored} jobs (passed keyword threshold)`)
+      console.log(`   ✅ Stored ${jobsStored} jobs (${filterRejected} filtered out, ${jobsSkipped} skipped)`)
 
-      if (jobsStored > 0) {
-        await emitPipelineEvent(data.searchId, 'jobs_filtered', 'result', `Keyword filter: ${jobsStored}/${data.jobs.length} jobs passed`, undefined, { stored: jobsStored, total: data.jobs.length }, sseManager)
-      } else if (data.jobs.length > 0) {
-        await emitPipelineEvent(data.searchId, 'jobs_filtered', 'result', `Keyword filter: 0/${data.jobs.length} jobs passed — all rejected`, undefined, { stored: 0, total: data.jobs.length }, sseManager)
-      }
+      await emitPipelineEvent(data.searchId, 'jobs_filtered', 'result', `Keyword filter: ${jobsStored}/${data.jobs.length} jobs stored${fallbackUnfiltered ? ' (fallback: unfiltered)' : ''}`, undefined, { stored: jobsStored, total: data.jobs.length, filteredOut: filterRejected + jobsSkipped, fallback: fallbackUnfiltered }, sseManager)
 
       // Validate and discover new companies
       let companiesDiscovered = 0
@@ -484,9 +549,10 @@ export const eventHandlers = {
 
       console.log(`   🏢 Discovered ${companiesDiscovered} new companies`)
 
-      // Update session stats
+      // Update session stats: jobsExtracted counts jobs actually stored (B2).
       session.companiesCrawled += 1
-      session.jobsExtracted += data.jobs.length
+      session.jobsExtracted += jobsStored
+      session.jobsFilteredOut = (session.jobsFilteredOut || 0) + filterRejected + jobsSkipped
       session.companiesRemaining -= 1
       await session.save()
       broadcastSessionStatus(session, sseManager)
@@ -575,28 +641,38 @@ ${jobDetails}`
 
       await emitPipelineEvent(data.searchId, 'scoring_result', 'response', `AI scored ${scores.length} jobs`, undefined, { scoredCount: scores.length }, sseManager)
 
-      // Update each job with score
+      // Update each job with score, counting only scores that actually match a
+      // submitted job so jobsScored reflects reality (B2).
+      let scoredCount = 0
+      const scoredJobIds: string[] = []
       for (const scoreData of scores) {
         const jobId = scoreData.jobId
-        await JobModel.findByIdAndUpdate(jobId, {
+        if (!data.jobIds.includes(jobId)) continue
+        const updated = await JobModel.findByIdAndUpdate(jobId, {
           matchScore: scoreData.matchScore,
           matchReasoning: scoreData.reasoning,
           scoredAt: new Date(),
           scoredVersion: 1
         })
+        if (updated) {
+          scoredCount++
+          scoredJobIds.push(jobId)
+        }
       }
 
-      session.jobsScored += data.jobIds.length
+      session.jobsScored += scoredCount
       await session.save()
       broadcastSessionStatus(session, sseManager)
 
-      console.log(`   ✅ Scored ${data.jobIds.length} jobs`)
+      console.log(`   ✅ Scored ${scoredCount} jobs`)
 
-      // Emit results ready
-      await addEvent('results_ready_for_frontend', {
-        searchId: data.searchId,
-        scoredJobIds: data.jobIds
-      })
+      // Emit results ready with the jobs that were actually scored
+      if (scoredJobIds.length > 0) {
+        await addEvent('results_ready_for_frontend', {
+          searchId: data.searchId,
+          scoredJobIds
+        })
+      }
     } catch (error) {
       console.error('Error in jobs_extracted handler:', error)
       await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
@@ -817,6 +893,11 @@ ${jobDetails}`
         return
       }
 
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping site storage`)
+        return
+      }
+
       // Create Site records for new sites
       for (const domain of data.sites) {
         await SiteModel.findOneAndUpdate(
@@ -834,19 +915,6 @@ ${jobDetails}`
       })
     } catch (error) {
       console.error('Error in sites_identified handler:', error)
-      const session = await SearchSessionModel.findById(data.searchId)
-      if (session) {
-        session.status = 'failed'
-        await session.save()
-      }
-
-      sseManager.broadcast(data.searchId, {
-        type: 'error',
-        payload: {
-          message: 'Search processing failed',
-          searchStatus: 'failed'
-        }
-      })
       throw error
     }
   },
@@ -917,8 +985,15 @@ ${jobDetails}`
         return
       }
 
-      // Store jobs in database
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping scraped jobs`)
+        return
+      }
+
+      // Store jobs in database (dedup by URL so queue retries don't duplicate)
       for (const job of data.jobs) {
+        const exists = await JobModel.findOne({ searchSessionId: data.searchId, url: job.url })
+        if (exists) continue
         const savedJob = await JobModel.create({
           ...job,
           searchSessionId: data.searchId,
@@ -959,6 +1034,7 @@ ${jobDetails}`
           companiesCrawled: session.companiesCrawled,
           companiesRemaining: session.companiesRemaining,
           jobsExtracted: session.jobsExtracted,
+          jobsFilteredOut: session.jobsFilteredOut,
           jobsScored: session.jobsScored
         }
       })
@@ -971,19 +1047,8 @@ ${jobDetails}`
       })
     } catch (error) {
       console.error('Error in jobs_scraped handler:', error)
-      const session = await SearchSessionModel.findById(data.searchId)
-      if (session) {
-        session.status = 'failed'
-        await session.save()
-      }
-
-      sseManager.broadcast(data.searchId, {
-        type: 'error',
-        payload: {
-          message: 'Search processing failed',
-          searchStatus: 'failed'
-        }
-      })
+      // Rethrow so the queue layer retries and marks the session failed after
+      // retries are exhausted — no duplicate work on an already-failed session.
       throw error
     }
   },
@@ -1019,19 +1084,6 @@ ${jobDetails}`
       })
     } catch (error) {
       console.error('Error in search_refined handler:', error)
-      const session = await SearchSessionModel.findById(data.searchId)
-      if (session) {
-        session.status = 'failed'
-        await session.save()
-      }
-
-      sseManager.broadcast(data.searchId, {
-        type: 'error',
-        payload: {
-          message: 'Search processing failed',
-          searchStatus: 'failed'
-        }
-      })
       throw error
     }
   },
@@ -1049,25 +1101,52 @@ ${jobDetails}`
         return
       }
 
+      if (!isSessionActive(session)) {
+        console.warn(`Search ${data.searchId} is not active (${session.status}), skipping completion`)
+        return
+      }
+
       // Get all jobs for this search
       const jobs = await JobModel.find({ searchSessionId: data.searchId })
 
       // Ask opencode to rank and score jobs
-      const jobDetails = jobs.map(j => `${j.title} at ${j.company} in ${j.location}`).join('\n')
-      const rankingPrompt = `Rank these jobs by how well they match "${session.query}". For each, give a score 0-100 and brief reasoning:\n${jobDetails}`
+      const jobDetails = jobs
+        .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nLocation: ${j.location}`)
+        .join('\n')
+      const rankingPrompt = `Rank these jobs by how well they match "${session.query}".
+For each job, provide a matchScore (0-100) and a brief reasoning.
+
+Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "reasoning": "..." }] }
+
+Jobs to rank:
+${jobDetails}`
 
       await emitPipelineEvent(data.searchId, 'final_ranking_prompt', 'prompt', 'Final LLM ranking prompt', rankingPrompt, { jobCount: jobs.length }, sseManager)
-      const ranking = await callLLM(rankingPrompt)
+      const parsed = await callLLMJson<{ scores: Array<{ jobId: string; matchScore: number; reasoning: string }> }>(rankingPrompt)
+      const scores = parsed.scores || []
 
-      await emitPipelineEvent(data.searchId, 'final_ranking_response', 'response', 'AI final ranking complete', ranking, undefined, sseManager)
+      await emitPipelineEvent(data.searchId, 'final_ranking_response', 'response', `AI final ranking complete (${scores.length} jobs)`, JSON.stringify(scores), { scoredCount: scores.length }, sseManager)
 
-      // Parse ranking and update jobs (simplified parsing)
+      // Apply the final ranking to each job's matchScore (B3).
+      for (const score of scores) {
+        const jobId = score.jobId
+        const currentJob = jobs.find(j => j._id.toString() === jobId)
+        if (!currentJob) continue
+        await JobModel.findByIdAndUpdate(jobId, {
+          matchScore: score.matchScore,
+          matchReasoning: score.reasoning,
+          scoredAt: new Date(),
+          scoredVersion: (currentJob.scoredVersion || 0) + 1
+        })
+      }
+
       session.conversationHistory.push(
         { role: 'user', content: rankingPrompt },
-        { role: 'assistant', content: ranking }
+        { role: 'assistant', content: JSON.stringify(scores) }
       )
       session.status = 'complete'
       session.completedAt = new Date()
+      session.jobsScored = (session.jobsScored || 0) + scores.length
       await session.save()
 
       // Broadcast completion status
@@ -1080,6 +1159,7 @@ ${jobDetails}`
           companiesCrawled: session.companiesCrawled,
           companiesRemaining: session.companiesRemaining,
           jobsExtracted: session.jobsExtracted,
+          jobsFilteredOut: session.jobsFilteredOut,
           jobsScored: session.jobsScored
         }
       })
@@ -1087,19 +1167,8 @@ ${jobDetails}`
       console.log('Search session complete:', data.searchId)
     } catch (error) {
       console.error('Error in search_complete handler:', error)
-      const session = await SearchSessionModel.findById(data.searchId)
-      if (session) {
-        session.status = 'failed'
-        await session.save()
-      }
-
-      sseManager.broadcast(data.searchId, {
-        type: 'error',
-        payload: {
-          message: 'Search processing failed',
-          searchStatus: 'failed'
-        }
-      })
+      // Rethrow so BullMQ retries transient LLM/DB failures; the queue layer
+      // marks the session failed once retries are exhausted.
       throw error
     }
   },

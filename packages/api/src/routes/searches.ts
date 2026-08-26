@@ -28,14 +28,27 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       startedAt: new Date()
     })
 
-    // Fire-and-forget: add event to queue without blocking the response
-    addEvent('search_started', {
-      searchId: session._id.toString(),
-      userId,
-      query
-    }).catch(error => {
-      console.error('Failed to queue search_started event:', error)
-    })
+    // Enqueue the search_started event. Not fire-and-forget: if the queue is
+    // unavailable the session is marked failed immediately so the user sees a
+    // real error instead of a search stuck in `running` forever.
+    try {
+      await addEvent('search_started', {
+        searchId: session._id.toString(),
+        userId,
+        query
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('Failed to queue search_started event:', message)
+      session.status = 'failed'
+      session.failureReason = `Failed to enqueue search: ${message}`
+      await session.save()
+      return res.status(503).json({
+        searchId: session._id.toString(),
+        status: session.status,
+        error: session.failureReason
+      })
+    }
 
     res.status(201).json({
       searchId: session._id.toString(),
@@ -68,6 +81,7 @@ router.get('/:searchId', async (req: Request, res: Response, next: NextFunction)
     res.status(200).json({
       searchId: session._id.toString(),
       status: session.status,
+      failureReason: session.failureReason || null,
       query: session.query,
       iterationCount: session.iterationCount,
       foundJobsCount: session.foundJobs ? session.foundJobs.length : 0,
@@ -150,10 +164,12 @@ router.get('/:searchId/status', async (req: Request, res: Response, next: NextFu
 
     res.status(200).json({
       status: session.status,
+      failureReason: session.failureReason || null,
       companiesDiscovered: session.companiesDiscovered,
       companiesCrawled: session.companiesCrawled,
       companiesRemaining: session.companiesRemaining,
       jobsExtracted: session.jobsExtracted,
+      jobsFilteredOut: session.jobsFilteredOut,
       jobsScored: session.jobsScored,
       expandedSearch: session.expandedSearch,
       query: session.query,

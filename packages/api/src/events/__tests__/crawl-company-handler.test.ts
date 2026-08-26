@@ -13,7 +13,7 @@ let CompanyModel: typeof import('../../db/models.js')['CompanyModel']
 let addEvent: typeof import('../../events/queue.js')['addEvent']
 let axios: typeof import('axios')['default']
 
-const MOCK_SESSION = { _id: 'sess1', userId: 'user1', query: 'engineer' }
+const MOCK_SESSION = { _id: 'sess1', userId: 'user1', query: 'engineer', status: 'running' }
 const MOCK_SSE = { broadcast: vi.fn() } as any
 const HANDLER_DATA = { searchId: 'sess1', companyId: 'co1', url: 'https://ibm.com/careers', companyName: 'IBM', query: 'engineer' }
 
@@ -78,7 +78,7 @@ describe('crawl_company handler', () => {
 
 describe('company_crawled handler', () => {
   it('sets Company.status to unsupported when data.unsupported is true', async () => {
-    vi.mocked(SearchSessionModel.findById).mockResolvedValue({ _id: 'sess1', userId: 'user1', query: 'engineer' } as any)
+    vi.mocked(SearchSessionModel.findById).mockResolvedValue({ _id: 'sess1', userId: 'user1', query: 'engineer', status: 'running' } as any)
     const mockCompany = { status: 'crawling', save: vi.fn() }
     vi.mocked(CompanyModel.findById).mockResolvedValue(mockCompany as any)
 
@@ -92,7 +92,7 @@ describe('company_crawled handler', () => {
   })
 
   it('sets Company.status to crawled when data.unsupported is false', async () => {
-    vi.mocked(SearchSessionModel.findById).mockResolvedValue({ _id: 'sess1', userId: 'user1', query: 'engineer' } as any)
+    vi.mocked(SearchSessionModel.findById).mockResolvedValue({ _id: 'sess1', userId: 'user1', query: 'engineer', status: 'running' } as any)
     const mockCompany = { status: 'crawling', save: vi.fn() }
     vi.mocked(CompanyModel.findById).mockResolvedValue(mockCompany as any)
 
