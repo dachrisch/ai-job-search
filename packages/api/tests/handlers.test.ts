@@ -10,7 +10,37 @@ import { callLLMJson } from '../src/ai/llm'
 import { SearchSourceManager } from '../src/search-sources/searxng-source'
 
 // Mock dependencies
-vi.mock('../src/db/models')
+// NOTE: db/models is mocked with an explicit factory because vitest's
+// auto-mock aliases every nested method to a single shared mock fn — mocking
+// CompanyModel.findById would otherwise also change SearchSessionModel.findById
+// and make handlers see company statuses where a session is expected.
+vi.mock('../src/db/models', () => ({
+  SearchSessionModel: {
+    findById: vi.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    findByIdAndUpdate: vi.fn(),
+    create: vi.fn(),
+    countDocuments: vi.fn(),
+  },
+  JobModel: {
+    find: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    findByIdAndUpdate: vi.fn(),
+    countDocuments: vi.fn(),
+  },
+  CompanyModel: {
+    find: vi.fn(),
+    findOne: vi.fn(),
+    findById: vi.fn(),
+    findOneAndUpdate: vi.fn(),
+    create: vi.fn(),
+  },
+  SiteModel: {
+    findOneAndUpdate: vi.fn(),
+  },
+}))
 vi.mock('../src/events/queue')
 vi.mock('../src/job-sources/search-service')
 vi.mock('../src/ai/llm.js')
@@ -48,13 +78,16 @@ describe('Event Handlers', () => {
       userId: 'user-123',
       query: 'software engineer',
       status: 'running',
+      failureReason: undefined,
       searchQueries: [],
       discoveredPages: [],
       foundJobs: [],
+      conversationHistory: [],
       companiesDiscovered: 0,
       companiesCrawled: 0,
       companiesRemaining: 0,
       jobsExtracted: 0,
+      jobsFilteredOut: 0,
       jobsScored: 0,
       expandedSearch: false,
       iterationCount: 0,
@@ -454,7 +487,9 @@ describe('Event Handlers', () => {
       )
     })
 
-    it('should filter out jobs below keyword threshold', async () => {
+    it('falls back to storing all jobs when none pass the keyword filter', async () => {
+      // B1: a German listing that fails an English keyword filter must not be
+      // silently dropped — the LLM scorer is the real relevance judge.
       const jobs = [
         {
           title: 'Marketing Manager',
@@ -480,6 +515,7 @@ describe('Event Handlers', () => {
         reasoning: 'No match',
       })
       vi.mocked(jobMatcher.passesKeywordThreshold).mockReturnValue(false)
+      vi.mocked(JobModel.create).mockResolvedValue({ _id: 'job-1' } as any)
       vi.mocked(addEvent).mockResolvedValue('job-1')
 
       await eventHandlers.company_crawled(
@@ -492,7 +528,113 @@ describe('Event Handlers', () => {
         sseManager
       )
 
-      expect(JobModel.create).not.toHaveBeenCalled()
+      // Fallback: the job is stored despite failing the filter.
+      expect(JobModel.create).toHaveBeenCalled()
+      // jobsExtracted counts jobs actually stored (B2); nothing was filtered out.
+      expect(mockSession.jobsExtracted).toBe(1)
+      expect(mockSession.jobsFilteredOut).toBe(0)
+    })
+
+    it('tracks filtered-out jobs when some pass the filter', async () => {
+      const jobs = [
+        {
+          title: 'Senior Software Engineer',
+          company: 'Google',
+          description: 'Software role',
+          url: 'https://example.com/job1',
+          location: 'Berlin',
+          sourceUrl: 'https://example.com',
+        },
+        {
+          title: 'Marketing Manager',
+          company: 'Google',
+          description: 'Marketing role',
+          url: 'https://example.com/job2',
+          location: 'Berlin',
+          sourceUrl: 'https://example.com',
+        },
+      ]
+
+      mockSession.query = 'software engineer'
+
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(CompanyModel.findById).mockResolvedValue({ _id: 'company-1', save: vi.fn() } as any)
+      vi.mocked(CompanyModel.find).mockResolvedValue([])
+      vi.mocked(jobMatcher.calculateKeywordMatch)
+        .mockReturnValueOnce({ score: 0.85, reasoning: 'Match' })
+        .mockReturnValueOnce({ score: 0.1, reasoning: 'No match' })
+      vi.mocked(jobMatcher.passesKeywordThreshold)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false)
+      vi.mocked(JobModel.create).mockResolvedValue({ _id: 'job-1' } as any)
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.company_crawled(
+        {
+          searchId: 'session-123',
+          companyId: 'company-1',
+          jobs,
+          discoveredCompanies: [],
+        },
+        sseManager
+      )
+
+      expect(JobModel.create).toHaveBeenCalledTimes(1)
+      expect(mockSession.jobsExtracted).toBe(1)
+      expect(mockSession.jobsFilteredOut).toBe(1)
+    })
+
+    it('skips invalid jobs instead of failing the whole search', async () => {
+      const jobs = [
+        {
+          title: 'Valid Engineer',
+          company: 'Google',
+          description: 'A valid job',
+          url: 'https://example.com/job1',
+          location: 'Berlin',
+          sourceUrl: 'https://example.com',
+        },
+        {
+          // Fails persistence (e.g. missing required field) — must not take down the search.
+          title: 'Broken Job',
+          company: 'Google',
+          description: 'Broken',
+          url: 'https://example.com/job2',
+          location: 'Berlin',
+          sourceUrl: 'https://example.com',
+        },
+      ]
+
+      mockSession.query = 'engineer'
+
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(CompanyModel.findById).mockResolvedValue({ _id: 'company-1', save: vi.fn() } as any)
+      vi.mocked(CompanyModel.find).mockResolvedValue([])
+      vi.mocked(jobMatcher.calculateKeywordMatch).mockReturnValue({
+        score: 0.9,
+        reasoning: 'Match',
+      })
+      vi.mocked(jobMatcher.passesKeywordThreshold).mockReturnValue(true)
+      // First job fails to persist, second succeeds.
+      vi.mocked(JobModel.create)
+        .mockRejectedValueOnce(new Error('validation failed'))
+        .mockResolvedValueOnce({ _id: 'job-2' } as any)
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.company_crawled(
+        {
+          searchId: 'session-123',
+          companyId: 'company-1',
+          jobs,
+          discoveredCompanies: [],
+        },
+        sseManager
+      )
+
+      // Search still completes; the bad job was skipped and counted.
+      expect(mockSession.save).toHaveBeenCalled()
+      expect(mockSession.jobsExtracted).toBe(1)
+      expect(mockSession.jobsFilteredOut).toBe(1)
     })
 
     it('should discover new companies from crawler response', async () => {
@@ -906,6 +1048,65 @@ describe('Event Handlers', () => {
         { $set: expect.objectContaining({ confidence: 'low' }) },
         { upsert: true, new: true }
       )
+    })
+  })
+
+  describe('search_complete handler', () => {
+    it('applies the parsed final ranking to job match scores', async () => {
+      const mockJobs = [
+        {
+          _id: { toString: () => 'job-1' },
+          title: 'Senior Engineer',
+          company: 'Google',
+          location: 'Berlin',
+          scoredVersion: 0,
+        },
+      ]
+
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
+      vi.mocked(callLLMJson).mockResolvedValue({
+        scores: [{ jobId: 'job-1', matchScore: 91, reasoning: 'Excellent fit' }],
+      })
+      vi.mocked(JobModel.findByIdAndUpdate).mockResolvedValue({} as any)
+
+      await eventHandlers.search_complete({ searchId: 'session-123' }, sseManager)
+
+      // B3: the final ranking must update matchScore, not just be logged.
+      expect(JobModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        'job-1',
+        expect.objectContaining({
+          matchScore: 91,
+          matchReasoning: 'Excellent fit',
+          scoredVersion: 1,
+        })
+      )
+      expect(mockSession.status).toBe('complete')
+      expect(mockSession.completedAt).toBeInstanceOf(Date)
+    })
+
+    it('marks the search complete and broadcasts status', async () => {
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(JobModel.find).mockResolvedValue([] as any)
+      vi.mocked(callLLMJson).mockResolvedValue({ scores: [] })
+
+      await eventHandlers.search_complete({ searchId: 'session-123' }, sseManager)
+
+      expect(mockSession.status).toBe('complete')
+      expect(sseManager.broadcast).toHaveBeenCalledWith('session-123', {
+        type: 'status',
+        payload: expect.objectContaining({ status: 'complete' }),
+      })
+    })
+
+    it('skips completion for a search that is no longer running', async () => {
+      mockSession.status = 'failed'
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+
+      await eventHandlers.search_complete({ searchId: 'session-123' }, sseManager)
+
+      expect(callLLMJson).not.toHaveBeenCalled()
+      expect(mockSession.status).toBe('failed')
     })
   })
 })

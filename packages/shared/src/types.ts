@@ -61,6 +61,7 @@ export interface SearchSession {
   userId: string
   query: string
   status: 'running' | 'complete' | 'failed'
+  failureReason?: string
   searchPhase?: 'initial' | 'refined'
   searchQueries?: string[]
   discoveredPages?: string[]
@@ -76,6 +77,7 @@ export interface SearchSession {
   companiesCrawled: number
   companiesRemaining: number
   jobsExtracted: number
+  jobsFilteredOut: number
   jobsScored: number
   currentCrawlBatch: number
   expandedSearch: boolean

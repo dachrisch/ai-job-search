@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import { connectDB } from './db/index.js'
 import { registerEventHandlers, initializeQueue } from './events/queue.js'
 import { eventHandlers } from './events/handlers.js'
+import { startSweeper } from './events/sweeper.js'
 import authRoutes from './routes/auth.js'
 import { streamRouter } from './routes/stream.js'
 import { SSEManager } from './utils/SSEManager.js'
@@ -65,6 +66,9 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`)
     })
+
+    // Watch for stuck `running` searches and mark them failed (A2).
+    startSweeper(sseManager)
   } catch (error) {
     console.error('❌ Failed to start server:', error)
     process.exit(1)

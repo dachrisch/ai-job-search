@@ -80,11 +80,60 @@ describe('Job Keyword Matcher', () => {
       expect(result.reasoning).toContain('100%')
     })
 
-    it('returns substring match score of 0.8 when query is substring of title', () => {
+    it('matches whole query words at full score', () => {
+      // "python" and "engineer" both appear as whole words in the title.
       const result = calculateKeywordMatch('Senior Python Engineer', 'python engineer')
 
-      // "python engineer" is a substring of "senior python engineer"
-      expect(result.score).toBe(0.8)
+      expect(result.score).toBe(1.0)
+    })
+
+    it('matches tech tokens only at word boundaries', () => {
+      // "react" must match "react", not "reaction" or "reactive".
+      expect(calculateKeywordMatch('React Developer', 'react').score).toBe(1.0)
+      expect(calculateKeywordMatch('Reaction Engineering', 'react').score).toBe(0)
+      expect(calculateKeywordMatch('Reactive Systems', 'react').score).toBe(0)
+    })
+
+    it('matches kubernetes exactly without substring leakage', () => {
+      expect(calculateKeywordMatch('Kubernetes Platform Engineer', 'kubernetes').score).toBe(1.0)
+      expect(calculateKeywordMatch('Platform Engineer', 'kubernetes').score).toBe(0)
+    })
+
+    it('filters German and English stopwords from the query', () => {
+      const withNoise = calculateKeywordMatch('Python Engineer', 'the python engineer')
+      const clean = calculateKeywordMatch('Python Engineer', 'python engineer')
+
+      expect(withNoise.score).toBe(clean.score)
+    })
+
+    it('matches German job titles against English queries', () => {
+      const result = calculateKeywordMatch('Senior Python Entwickler', 'python developer')
+
+      expect(result.score).toBeGreaterThan(0.7)
+    })
+
+    it('matches German compound role titles', () => {
+      const result = calculateKeywordMatch(
+        'Kubernetes-Plattformingenieur (m/w/d)',
+        'kubernetes platform engineer'
+      )
+
+      expect(result.score).toBeGreaterThan(0.4)
+    })
+
+    it('matches German inflections of roles', () => {
+      const result = calculateKeywordMatch(
+        'Senior Softwareentwicklerin',
+        'senior software developer'
+      )
+
+      expect(result.score).toBeGreaterThan(0.5)
+    })
+
+    it('does not match German titles for unrelated English queries', () => {
+      const result = calculateKeywordMatch('Vertriebsmitarbeiter', 'python developer')
+
+      expect(result.score).toBeLessThan(0.5)
     })
 
     it('calculates word-level matching correctly', () => {
