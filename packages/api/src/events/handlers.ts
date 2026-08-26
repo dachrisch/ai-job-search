@@ -16,6 +16,23 @@ import { emitPipelineEvent } from '../utils/pipeline.js'
 
 const jobSourceManager = new JobSourceManager()
 
+function broadcastSessionStatus(session: any, sseManager: SSEManager): void {
+  if (!sseManager) return
+  sseManager.broadcast(session._id.toString(), {
+    type: 'status',
+    payload: {
+      status: session.status,
+      iterationCount: session.iterationCount,
+      companiesDiscovered: session.companiesDiscovered,
+      companiesCrawled: session.companiesCrawled,
+      companiesRemaining: session.companiesRemaining,
+      jobsExtracted: session.jobsExtracted,
+      jobsScored: session.jobsScored,
+      expandedSearch: session.expandedSearch,
+    },
+  })
+}
+
 export const eventHandlers = {
   search_started: async (data: { searchId: string; userId: string; query: string }, sseManager: SSEManager) => {
     try {
@@ -58,6 +75,7 @@ export const eventHandlers = {
       if (apiJobsStored > 0) {
         session.jobsExtracted += apiJobsStored
         await session.save()
+        broadcastSessionStatus(session, sseManager)
         await emitPipelineEvent(data.searchId, 'tier1_results', 'result', `Arbeitsagentur: ${apiJobsStored} jobs stored`, undefined, { count: apiJobsStored }, sseManager)
         await addEvent('jobs_extracted', {
           searchId: data.searchId,
@@ -168,6 +186,7 @@ export const eventHandlers = {
       session.companiesDiscovered = data.companies.length
       session.companiesRemaining = data.companies.length
       await session.save()
+      broadcastSessionStatus(session, sseManager)
 
       console.log(`   ✅ SearchSession updated with discovery stats`)
 
@@ -270,6 +289,7 @@ export const eventHandlers = {
       session.companiesDiscovered = data.companies.length
       session.companiesRemaining = data.companies.length
       await session.save()
+      broadcastSessionStatus(session, sseManager)
 
       // Select first batch: min(10, total) companies
       const batchSize = Math.min(10, createdCompanies.length)
@@ -466,15 +486,20 @@ export const eventHandlers = {
 
       // Update session stats
       session.companiesCrawled += 1
-      session.jobsExtracted += jobsStored
+      session.jobsExtracted += data.jobs.length
       session.companiesRemaining -= 1
       await session.save()
+      broadcastSessionStatus(session, sseManager)
 
-      // Check if need to expand search (jobs < 20 and companies remaining > 0)
-      if (session.jobsExtracted < 20 && session.companiesRemaining > 0) {
-        console.log(`   📊 Need more jobs (${session.jobsExtracted} < 20), queuing next batch...`)
+      // Check if need to expand search (stored jobs < 20 and companies remaining > 0)
+      const storedJobsCount = await JobModel.countDocuments({
+        searchSessionId: session._id
+      })
+      if (storedJobsCount < 20 && session.companiesRemaining > 0) {
+        console.log(`   📊 Need more jobs (${storedJobsCount} < 20), queuing next batch...`)
         session.expandedSearch = true
         await session.save()
+        broadcastSessionStatus(session, sseManager)
 
         // Get next batch of pending companies
         const nextBatch = await CompanyModel.find({
@@ -563,6 +588,7 @@ ${jobDetails}`
 
       session.jobsScored += data.jobIds.length
       await session.save()
+      broadcastSessionStatus(session, sseManager)
 
       console.log(`   ✅ Scored ${data.jobIds.length} jobs`)
 

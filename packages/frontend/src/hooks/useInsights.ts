@@ -104,10 +104,36 @@ export function useInsights(searchId: string, token: string): UseInsightsReturn 
             if (msg.payload.pipelineEvents) {
               setPipelineEvents(msg.payload.pipelineEvents)
             }
+            setData(prev => prev ? {
+              ...prev,
+              status: msg.payload.status ?? prev.status,
+              stats: {
+                ...prev.stats,
+                companiesDiscovered: msg.payload.companiesDiscovered ?? prev.stats.companiesDiscovered,
+                companiesCrawled: msg.payload.companiesCrawled ?? prev.stats.companiesCrawled,
+                companiesRemaining: msg.payload.companiesRemaining ?? prev.stats.companiesRemaining,
+                jobsExtracted: msg.payload.jobsExtracted ?? prev.stats.jobsExtracted,
+                jobsScored: msg.payload.jobsScored ?? prev.stats.jobsScored,
+                expandedSearch: msg.payload.expandedSearch ?? prev.stats.expandedSearch,
+              },
+            } : prev)
           } else if (msg.type === 'pipeline_event') {
             setPipelineEvents(prev => [...prev, msg.payload])
           } else if (msg.type === 'status') {
             setStatus(msg.payload.status)
+            setData(prev => prev ? {
+              ...prev,
+              status: msg.payload.status,
+              stats: {
+                ...prev.stats,
+                companiesDiscovered: msg.payload.companiesDiscovered ?? prev.stats.companiesDiscovered,
+                companiesCrawled: msg.payload.companiesCrawled ?? prev.stats.companiesCrawled,
+                companiesRemaining: msg.payload.companiesRemaining ?? prev.stats.companiesRemaining,
+                jobsExtracted: msg.payload.jobsExtracted ?? prev.stats.jobsExtracted,
+                jobsScored: msg.payload.jobsScored ?? prev.stats.jobsScored,
+                expandedSearch: msg.payload.expandedSearch ?? prev.stats.expandedSearch,
+              },
+            } : prev)
           } else if (msg.type === 'error') {
             setStatus('failed')
           }
