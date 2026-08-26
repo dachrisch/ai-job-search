@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-26
 **Scope:** Live-site audit of `https://jobs.lehel.xyz/` (register → run queries → observe pipeline insights) cross-referenced against the repository code.
-**Status:** Plan document — implementation tracked in follow-up PRs.
+**Status:** Phase 0 & 1 implemented on `fix/search-pipeline-audit` (this branch). Phases 2–5 pending.
 
 ---
 
@@ -70,17 +70,19 @@ Priority legend: 🔴 P0 (blocks the core product from producing results) · �
 
 Implementation order mirrors priority. Each phase is a follow-up PR against this branch; this PR documents the plan only.
 
-### Phase 0 — Pipeline reliability (A1, A2)
-- Set an explicit BullMQ worker `concurrency` (e.g. 3–5) and add retry/backoff + a dead-letter strategy in `queue.ts`.
-- Reduce how long a single job holds the worker: split `search_started`'s long discovery into queued sub-events **or** enforce an overall per-search deadline plus per-LLM-call timeouts.
-- Make event enqueue from `searches.ts` non-silent: record queue state on the session and mark it `failed` when enqueue throws (remove the fire-and-forget `.catch`).
-- Add a **sweeper** (periodic scan) that marks `running` sessions older than N minutes as `failed` with a stored reason and SSE error broadcast.
+### Phase 0 — Pipeline reliability (A1, A2) — ✅ implemented
+- ✅ Set an explicit BullMQ worker `concurrency` (5) and add retry/backoff (`attempts: 3`, exponential) + a dead-letter strategy in `queue.ts`. Exhausted retries also mark the owning session `failed` with a stored reason + SSE error.
+- ✅ Enforce an overall per-search deadline plus per-LLM-call timeouts (per-LLM timeouts already existed in `opencode.ts`; the deadline is enforced by the sweeper).
+- ✅ Make event enqueue from `searches.ts` non-silent: on enqueue failure the session is saved as `failed` with `failureReason` and the API returns 503 (fire-and-forget `.catch` removed).
+- ✅ Add a **sweeper** (`events/sweeper.ts`) that marks `running` sessions older than N minutes (default 30) as `failed` with a stored reason and SSE error broadcast; started from `index.ts`.
+- ✅ Handlers bail out early when a session is no longer `running`, and terminal handlers rethrow so retries stay meaningful.
 
-### Phase 1 — Jobs actually appear (B1, B2, B3, A3)
-- Rewrite `calculateKeywordMatch`: German + English stemming/lemmatization, word-boundary tech-token matching ("react", "kubernetes"), stopword filtering. **Fall back to storing unfiltered jobs when 0 pass the filter** so the LLM scorer is the real relevance judge.
-- Track stored-vs-filtered counts so `jobsExtracted`/`jobsScored` reflect reality (`jobsFilteredOut` or equivalent).
-- Parse and apply the final ranking response in `search_complete` to update `matchScore`.
-- Add per-job try/catch in `company_crawled`; skip invalid jobs instead of failing the whole search.
+### Phase 1 — Jobs actually appear (B1, B2, B3, A3) — ✅ implemented
+- ✅ Rewrite `calculateKeywordMatch`: German + English stemming/lemmatization, German↔English concept mapping ("entwickler" == "developer"), word-boundary tech-token matching ("react", "kubernetes"), stopword filtering. **Falls back to storing unfiltered jobs when 0 pass the filter** so the LLM scorer is the real relevance judge.
+- ✅ Track stored-vs-filtered counts: `jobsExtracted` counts stored jobs, new `jobsFilteredOut` reflects reality, `jobsScored` counts actually-scored jobs.
+- ✅ Parse and apply the final ranking response in `search_complete` to update `matchScore`.
+- ✅ Add per-job try/catch in `company_crawled`; skip invalid/duplicate jobs instead of failing the whole search.
+- ✅ Expose `jobsFilteredOut`/`failureReason` via status, stream (SSE sync), and insights endpoints; added to `SearchSession` schema + shared types.
 
 ### Phase 2 — Persistence & scoping (C1, C2)
 - Add `userId`/`searchSessionId` to `Company`; join companies ↔ sessions by session ID in insights and crawl-batch selection; keep `searchQuery` as discovery metadata only.
@@ -104,9 +106,9 @@ Implementation order mirrors priority. Each phase is a follow-up PR against this
 
 ## Acceptance criteria
 
-- A search completes with jobs shown when relevant jobs exist (Phase 0–1).
-- Searches never remain stuck `running` without surfacing a failure (Phase 0).
-- Re-running a similar query reuses previously discovered/crawled companies instead of re-discovering from scratch (Phase 2).
-- Users can browse/resume past searches and edit their profile (Phase 3).
-- Auth endpoints enforce password policy and rate limits; tokens are not leaked via query strings (Phase 4).
-- Health endpoint reflects real dependency status (Phase 5).
+- ✅ A search completes with jobs shown when relevant jobs exist (Phase 0–1).
+- ✅ Searches never remain stuck `running` without surfacing a failure (Phase 0).
+- ⬜ Re-running a similar query reuses previously discovered/crawled companies instead of re-discovering from scratch (Phase 2).
+- ⬜ Users can browse/resume past searches and edit their profile (Phase 3).
+- ⬜ Auth endpoints enforce password policy and rate limits; tokens are not leaked via query strings (Phase 4).
+- ⬜ Health endpoint reflects real dependency status (Phase 5).
