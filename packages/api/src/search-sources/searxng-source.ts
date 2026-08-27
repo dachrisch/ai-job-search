@@ -14,6 +14,7 @@ interface SearXNGResult {
 interface CompanyClassification {
   url: string
   isCompanyPage: boolean
+  relevantToSearch: boolean
   companyName?: string | null
   hiddenGemScore: number
   sizeSignals: string[]
@@ -37,6 +38,23 @@ const LIMIT_PER_PAGE = 20
 const CLASSIFY_LIMIT = 50
 const MIN_GEM_SCORE = 60
 const SEARCH_CONCURRENCY = 3
+
+// Queries whose results land almost entirely on these domains are off-topic
+// (dictionaries, wikis, definitions) — a symptom of the LLM emitting broken
+// query syntax. Used to drop those results before classification.
+const OFF_TOPIC_DOMAINS = new Set([
+  'wikipedia.org', 'wiktionary.org', 'wikiwand.com',
+  'pons.com', 'dict.cc', 'leo.org',
+  'dictionary.cambridge.org', 'cambridge.org', 'merriam-webster.com',
+  'oxfordlearnersdictionaries.com', 'collinsdictionary.com',
+  'producthunt.com', 'techcrunch.com', 'reddit.com', 'youtube.com',
+])
+
+// If discovery yields too few usable results (e.g. every generated query was
+// malformed and returned dictionary junk), fall back to these simple,
+// deterministic queries built from the user's own search so the pipeline still
+// has something real to classify.
+const MIN_RESULTS_BEFORE_FALLBACK = 5
 
 export class SearchSourceManager {
   private searxngUrl: string
@@ -83,6 +101,25 @@ export class SearchSourceManager {
       if (allResults.size >= CLASSIFY_LIMIT) break
     }
 
+    // Guard: if the LLM produced only broken queries (few/no usable results),
+    // fall back to simple deterministic queries so we still surface real jobs
+    // instead of failing the whole search.
+    if (allResults.size < MIN_RESULTS_BEFORE_FALLBACK) {
+      console.warn('[discoverCompanies] Too few results from generated queries, using fallback queries', {
+        size: allResults.size,
+        userQuery,
+      })
+      const fallback: QuerySuggestion[] = [
+        `${userQuery} site:greenhouse.io`,
+        `${userQuery} site:jobs.ashbyhq.com`,
+        `${userQuery} site:personio.com`,
+      ].map(q => ({ q: this.sanitizeQuery(q), intent: 'fallback' }))
+      const fbResults = await this.runQueries(fallback)
+      for (const r of fbResults) {
+        if (!allResults.has(r.url)) allResults.set(r.url, r)
+      }
+    }
+
     if (allResults.size === 0) {
       console.warn('[discoverCompanies] SearXNG returned no results', { searchId, userQuery })
       return []
@@ -91,11 +128,13 @@ export class SearchSourceManager {
     const candidates = [...allResults.values()].slice(0, CLASSIFY_LIMIT)
     await emitPipelineEvent(searchId, 'classification_start', 'info', `Classifying ${candidates.length} results with AI`, undefined, { count: candidates.length }, sseManager)
     const classifications = await this.classifyResults(candidates, userQuery)
-    await emitPipelineEvent(searchId, 'classification_result', 'response', `Classification complete: ${classifications.filter(c => c.isCompanyPage).length} company pages found`, undefined, { total: classifications.length, companyPages: classifications.filter(c => c.isCompanyPage).length }, sseManager)
+    const companyPages = classifications.filter(c => c.isCompanyPage).length
+    const relevant = classifications.filter(c => c.isCompanyPage && c.relevantToSearch !== false).length
+    await emitPipelineEvent(searchId, 'classification_result', 'response', `Classification complete: ${companyPages} company pages found, ${relevant} relevant to search`, undefined, { total: classifications.length, companyPages, relevant }, sseManager)
 
     const byUrl = new Map(candidates.map(c => [c.url, c]))
     const discovered = classifications
-      .filter(c => c.isCompanyPage && byUrl.has(c.url))
+      .filter(c => c.isCompanyPage && c.relevantToSearch !== false && byUrl.has(c.url))
       .map(c => {
         const result = byUrl.get(c.url)!
         return {
@@ -168,18 +207,29 @@ Return ONLY valid JSON:
   ]
 }
 
-Guidelines:
-- Return exactly ${QUERIES_PER_ROUND} queries
-- PRESERVE GEOGRAPHY: if the user's search includes a location (city, region, country), the location MUST appear in every single query. Never drop it.
-- When a location is given, broaden coverage by also using metro-area and regional synonyms so you don't miss nearby postings. For a city, include the greater metro area AND the state/region in separate queries (e.g. "München" → also "Großraum München", "München Umgebung", "Bayern", "Oberbayern"; "Munich" → "Greater Munich", "Bavaria"). Mix the local-language and English spellings of both the role and the location.
-- VARY THE JOB TITLE: don't repeat the exact role verbatim in every query. Include synonyms, alternate spellings, and related titles so you catch more postings. For the role, use local-language and English variants plus seniority/specialization variants (e.g. "Product Manager" → "Produktmanager", "Product Owner", "Junior Product Manager", "Senior Product Manager", "Associate Product Manager"; "Software Engineer" → "Softwareentwickler", "Backend Engineer", "Entwickler"). Always keep the location on these variant queries too.
-- Mix German and English long-tail phrasings built around the user's search, e.g. "<query> stellenangebote", "<query> wir suchen", "<query> jobs Mittelstand", "<query> startup"
-- Include direct ATS-domain searches such as "<query> site:jobs.ashbyhq.com", "<query> site:apply.workable.com", and greenhouse/lever/personio/softgarden job boards — startups and SMEs cluster on these platforms. Keep the location in these site-scoped queries too.
-- Add negative filters (e.g. -site:linkedin.com -site:indeed.com -site:stepstone.de -site:xing.com) to push down aggregators
-- Bias toward queries that surface small/medium companies rather than global corporations`
+    Guidelines:
+    - Return exactly ${QUERIES_PER_ROUND} queries.
+    - Output clean, valid search syntax. Never wrap a query in stray parentheses or quotes (e.g. avoid artifacts like '(")Software Engineer"'). Each query must be a single coherent search string — no unbalanced quotes or parentheses.
+    - PRIMARY STRATEGY (the crawler can only extract jobs from ATS-hosted boards, NOT from company-owned career pages): make MOST queries target a single ATS job board with the role + location. Use exactly ONE site: filter per query — never chain multiple with OR. Vary the board across queries, e.g.:
+      * "<role> <location> site:greenhouse.io"
+      * "<role> <location> site:jobs.ashbyhq.com"
+      * "<role> <location> site:personio.com"
+      * "<role> <location> site:apply.workable.com"
+      * "<role> <location> site:jobs.lever.co"
+      * "<role> <location> site:softgarden.de"
+    - VARY THE JOB TITLE: use local-language and English variants plus seniority/specialization variants (e.g. "Product Manager" → "Produktmanager", "Product Owner"; "Software Engineer" → "Softwareentwickler", "Backend Engineer"). Always keep the location on these variant queries too.
+    - PRESERVE GEOGRAPHY: the location MUST appear in every query. When a location is given, also use metro-area/region synonyms in separate queries (e.g. "München" → "Großraum München", "Bayern", "Oberbayern"; "Munich" → "Greater Munich", "Bavaria").
+    - Add negative filters (e.g. -site:linkedin.com -site:indeed.com -site:stepstone.de -site:xing.com) to push down aggregators.
+    - Do NOT use phrases like "wir suchen" or "join our team" — they match unrelated pages.
+    - Keep one or two generic "<role> <location> stellenangebote" queries only as a fallback.
+    - Bias toward queries that surface small/medium companies and startups (which cluster on these ATS boards) rather than global corporations.`
 
     console.log('[generateQueries] Asking opencode for a query plan')
-    return callLLMJson<QueryPlan>(prompt)
+    const plan = await callLLMJson<QueryPlan>(prompt)
+    // The small/free LLM occasionally emits malformed query syntax (e.g. the
+    // `(")..."` artifact). Strip that before we ever hit SearXNG.
+    for (const q of plan.queries) q.q = this.sanitizeQuery(q.q)
+    return plan
   }
 
   private async runQueries(queries: QuerySuggestion[]): Promise<SearXNGResult[]> {
@@ -198,6 +248,7 @@ Guidelines:
       for (const result of list) {
         const url = this.normalizeCompanyUrl(result.url)
         if (this.isJobAggregator(url)) continue
+        if (this.isOffTopic(url)) continue
         if (seen.has(url)) continue
         seen.add(url)
         results.push({ ...result, url })
@@ -232,12 +283,15 @@ Guidelines:
 The user searched for: "${userQuery} careers"
 
 For each result below, determine:
-1. isCompanyPage: is this a company's own career/jobs page (not a job aggregator, recruiter portal, or news article)?
-2. companyName: the company name, or null
-3. hiddenGemScore (0-100): how much of a hidden gem is this employer? HIGH for small/medium/startup companies (team-size mentions like "we are a team of X", founder-led language, lesser-known brands, .de/.gmbh/.io/.dev domains, no Wikipedia presence). LOW for big corporations (global leader, Fortune 500, multinational, widely known brands).
-4. sizeSignals: the concrete signals you used, as an array of short strings
-5. sizeBand: "small" | "medium" | "large" | "unknown"
-6. confidence: "high" | "medium" | "low"
+1. isCompanyPage: is this a company's own career/jobs page (not a pure job aggregator like Stepstone/Indeed/LinkedIn/Xing, not a recruiter portal, not a news article)? Pages hosted on ATS platforms ARE valid company career pages — e.g. job-boards.greenhouse.io/<company>, jobs.lever.co/<company>, <company>.jobs.personio.de, jobs.ashbyhq.com/<company>, apply.workable.com/<company>, *.softgarden.de. Accept these.
+2. relevantToSearch: does this company plausibly offer roles matching the user's search AND operate in/near the specified location? Be STRICT. Reject companies in a different city/country or an unrelated industry, even if they have a careers page (e.g. a Seattle restaurant is NOT relevant to "product manager munich").
+3. companyName: the company name, or null
+4. hiddenGemScore (0-100): how much of a hidden gem is this employer? HIGH for small/medium/startup companies (team-size mentions like "we are a team of X", founder-led language, lesser-known brands, .de/.gmbh/.io/.dev domains, no Wikipedia presence). LOW for big corporations (global leader, Fortune 500, multinational, widely known brands).
+5. sizeSignals: the concrete signals you used, as an array of short strings
+6. sizeBand: "small" | "medium" | "large" | "unknown"
+7. confidence: "high" | "medium" | "low"
+
+Only mark a result as a useful discovery if BOTH isCompanyPage AND relevantToSearch are true.
 
 Results:
 ${topResults
@@ -251,6 +305,7 @@ Return ONLY a valid JSON array, one entry per result, in the same order:
   {
     "url": "string",
     "isCompanyPage": boolean,
+    "relevantToSearch": boolean,
     "companyName": "string or null",
     "hiddenGemScore": number,
     "sizeSignals": ["string"],
@@ -298,6 +353,29 @@ Return ONLY a valid JSON array of URLs, in the order you would crawl them (best 
     }
   }
 
+  /**
+   * Clean a generated query into valid SearXNG syntax. The small/free LLM
+   * sometimes emits artifacts like `(")Product Manager"` (stray parens/quotes)
+   * or doubled quotes; these break retrieval and return dictionary junk. We
+   * strip parens (SearXNG needs none for OR/`site:`) and collapse quotes.
+   */
+  private sanitizeQuery(q: string): string {
+    return q
+      .replace(/[()]/g, '')
+      .replace(/"{2,}/g, '"')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  private isOffTopic(url: string): boolean {
+    try {
+      const domain = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+      return OFF_TOPIC_DOMAINS.has(domain)
+    } catch {
+      return false
+    }
+  }
+
   // Trims ATS job-posting URLs down to the company's job-board root, e.g.
   // job-boards.greenhouse.io/getyourguide/jobs/123 -> .../getyourguide
   private normalizeCompanyUrl(url: string): string {
@@ -306,7 +384,14 @@ Return ONLY a valid JSON array of URLs, in the order you would crawl them (best 
       const isAtsHost = SearchSourceManager.ATS_DOMAINS.some(domain =>
         u.hostname.endsWith(domain)
       )
-      if (!isAtsHost) return url
+      if (!isAtsHost) {
+        // Drop tracking/query params (e.g. ?msockid=) so the same page isn't
+        // discovered as multiple "companies" and so we crawl the stable root.
+        const stripped = new URL(url)
+        stripped.search = ''
+        stripped.hash = ''
+        return stripped.toString()
+      }
 
       const firstSegment = u.pathname.split('/').filter(Boolean)[0]
       if (!firstSegment) return url
