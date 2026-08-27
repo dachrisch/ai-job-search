@@ -51,7 +51,9 @@ const companySchema = new Schema<Company>(
     location: { type: String },
     industry: { type: String },
     searchQuery: { type: String, required: true, index: true },
+    searchSessionId: { type: String, index: true },
     discoveredFrom: { type: String, required: true },
+    confidence: { type: String, enum: ['high', 'medium', 'low'] },
     status: {
       type: String,
       enum: ['pending_crawl', 'crawling', 'crawled', 'failed', 'unsupported'],

@@ -8,6 +8,31 @@ const router = Router()
 
 router.use(authMiddleware)
 
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId
+    const sessions = await SearchSessionModel.find({ userId })
+      .sort({ createdAt: -1 })
+      .select('query status jobsScored jobsExtracted companiesDiscovered companiesCrawled failureReason createdAt completedAt startedAt')
+      .limit(50)
+    res.json(sessions.map(s => ({
+      searchId: s._id.toString(),
+      query: s.query,
+      status: s.status,
+      jobsScored: s.jobsScored,
+      jobsExtracted: s.jobsExtracted,
+      companiesDiscovered: s.companiesDiscovered,
+      companiesCrawled: s.companiesCrawled,
+      failureReason: s.failureReason || null,
+      createdAt: s.createdAt,
+      startedAt: s.startedAt,
+      completedAt: s.completedAt || null,
+    })))
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).userId

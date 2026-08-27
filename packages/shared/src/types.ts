@@ -35,7 +35,8 @@ export interface Company {
   location?: string
   industry?: string
   searchQuery: string
-  discoveredFrom: 'searxng' | 'manual'
+  searchSessionId?: string
+  discoveredFrom: string
   confidence?: 'high' | 'medium' | 'low'
   hiddenGemScore?: number
   sizeBand?: 'small' | 'medium' | 'large' | 'unknown'

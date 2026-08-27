@@ -26,7 +26,7 @@ router.get('/:searchId/insights', async (req: Request, res: Response, next: Next
     }
 
     const companies = await CompanyModel.find({
-      searchQuery: session.query
+      searchSessionId: searchId
     }).select('url name status hiddenGemScore sizeBand confidence discoveredFrom')
 
     const jobs = await JobModel.find({
