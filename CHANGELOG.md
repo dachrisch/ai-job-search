@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.4](https://github.com/dachrisch/ai-job-search/compare/v0.11.3...v0.11.4) (2026-08-27)
+
+
+### Bug Fixes
+
+* security hardening + observability (audit Phase 4 & 5) ([77a8c2e](https://github.com/dachrisch/ai-job-search/commit/77a8c2e8a4e957e22e38d794fbd66b0667e66a7d))
+
 ## [0.11.3](https://github.com/dachrisch/ai-job-search/compare/v0.11.2...v0.11.3) (2026-08-27)
 
 
