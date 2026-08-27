@@ -90,6 +90,24 @@ export interface AuthResponse {
   token: string
 }
 
+export type HealthStatus = 'ok' | 'degraded' | 'down'
+
+export interface ServiceHealth {
+  status: 'up' | 'down'
+  responseTimeMs?: number
+  error?: string
+}
+
+export interface HealthResponse {
+  status: HealthStatus
+  uptime: number
+  timestamp: string
+  services: {
+    mongodb: ServiceHealth
+    redis: ServiceHealth
+  }
+}
+
 export interface SearchResponse {
   searchId: string
   status: 'running' | 'complete' | 'failed'
