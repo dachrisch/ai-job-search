@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.5](https://github.com/dachrisch/ai-job-search/compare/v0.11.4...v0.11.5) (2026-08-27)
+
+
+### Bug Fixes
+
+* complete search after crawl + location/title-aware queries and UX fixes ([#150](https://github.com/dachrisch/ai-job-search/issues/150)) ([5c11502](https://github.com/dachrisch/ai-job-search/commit/5c11502af9fe6b1d394f9c822dca1f8c81bfe1e2))
+
 ## [0.11.4](https://github.com/dachrisch/ai-job-search/compare/v0.11.3...v0.11.4) (2026-08-27)
 
 
