@@ -6,6 +6,7 @@ import { connectDB } from './db/index.js'
 import { registerEventHandlers, initializeQueue } from './events/queue.js'
 import { eventHandlers } from './events/handlers.js'
 import { startSweeper } from './events/sweeper.js'
+import { startDenylistCleanup } from './auth/denylist.js'
 import authRoutes from './routes/auth.js'
 import { streamRouter } from './routes/stream.js'
 import { SSEManager } from './utils/SSEManager.js'
@@ -69,6 +70,9 @@ async function startServer() {
 
     // Watch for stuck `running` searches and mark them failed (A2).
     startSweeper(sseManager)
+
+    // Periodic cleanup of expired denylist entries.
+    startDenylistCleanup()
   } catch (error) {
     console.error('❌ Failed to start server:', error)
     process.exit(1)

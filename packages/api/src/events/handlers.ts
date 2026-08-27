@@ -187,6 +187,7 @@ export const eventHandlers = {
               name: company.name,
               discoveredFrom: company.discoveredFrom,
               searchQuery: data.userQuery,
+              searchSessionId: data.searchId,
               confidence: company.confidence,
               hiddenGemScore: company.hiddenGemScore,
               sizeBand: company.sizeBand,
@@ -299,6 +300,7 @@ export const eventHandlers = {
               name: company.name,
               location: company.location,
               searchQuery: data.query,
+              searchSessionId: data.searchId,
               discoveredFrom: 'search_results',
               status: 'pending_crawl'
             }
@@ -539,10 +541,17 @@ export const eventHandlers = {
               url: discoveredCompany.url,
               location: discoveredCompany.location,
               searchQuery: session.query,
+              searchSessionId: session._id.toString(),
               discoveredFrom: company?.url || 'unknown',
               status: 'pending_crawl'
             })
             companiesDiscovered++
+          } else {
+            // Link this session to the company if not already linked
+            if (existing.searchSessionId !== session._id.toString()) {
+              existing.searchSessionId = session._id.toString()
+              await existing.save()
+            }
           }
         }
       }
@@ -567,11 +576,18 @@ export const eventHandlers = {
         await session.save()
         broadcastSessionStatus(session, sseManager)
 
-        // Get next batch of pending companies
+        // Get next batch of pending companies. Companies are session-scoped:
+        // only queue those discovered by this session, or companies that haven't
+        // been crawled by anyone in 7+ days (stale re-crawl).
+        const staleThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         const nextBatch = await CompanyModel.find({
-          searchQuery: session.query,
           status: 'pending_crawl',
-          _id: { $ne: data.companyId }
+          _id: { $ne: data.companyId },
+          $or: [
+            { searchSessionId: session._id.toString() },
+            { lastCrawlTime: { $exists: false } },
+            { lastCrawlTime: { $lt: staleThreshold } },
+          ]
         }).limit(Math.min(10, session.companiesRemaining))
 
         if (nextBatch.length > 0) {

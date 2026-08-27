@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { UserModel } from '../db/models.js'
 import { AuthResponse } from '@job-search/shared'
+import { addToken } from './denylist.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 
@@ -34,10 +35,52 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
 }
 
 export function verifyToken(token: string): { userId: string; email: string } {
+  const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string }
+  return decoded
+}
+
+export async function getUser(userId: string) {
+  const user = await UserModel.findById(userId).select('-passwordHash')
+  if (!user) throw new Error('User not found')
+  return { userId: user._id.toString(), email: user.email }
+}
+
+export async function updateProfile(userId: string, updates: { email?: string }) {
+  if (updates.email) {
+    const existing = await UserModel.findOne({ email: updates.email, _id: { $ne: userId } })
+    if (existing) throw new Error('Email already in use')
+  }
+  const user = await UserModel.findByIdAndUpdate(userId, { $set: updates }, { new: true }).select('-passwordHash')
+  if (!user) throw new Error('User not found')
+  return { userId: user._id.toString(), email: user.email }
+}
+
+export async function changePassword(userId: string, oldPassword: string, newPassword: string) {
+  const user = await UserModel.findById(userId)
+  if (!user) throw new Error('User not found')
+  const valid = await bcrypt.compare(oldPassword, user.passwordHash)
+  if (!valid) throw new Error('Current password is incorrect')
+  user.passwordHash = await bcrypt.hash(newPassword, 10)
+  await user.save()
+}
+
+export async function deleteUser(userId: string) {
+  const { SearchSessionModel, JobModel, CompanyModel } = await import('../db/models.js')
+  // Delete user's sessions, jobs, and unlink companies
+  const sessions = await SearchSessionModel.find({ userId }).select('_id')
+  const sessionIds = sessions.map(s => s._id.toString())
+  await JobModel.deleteMany({ searchSessionId: { $in: sessionIds } })
+  await SearchSessionModel.deleteMany({ userId })
+  await UserModel.findByIdAndDelete(userId)
+}
+
+export function logoutUser(token: string) {
+  // Decode without verification to get expiry (already validated by middleware)
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string }
-    return decoded
+    const payload = jwt.decode(token) as { exp?: number } | null
+    const expiresAtMs = payload?.exp ? payload.exp * 1000 : undefined
+    addToken(token, expiresAtMs)
   } catch {
-    throw new Error('Invalid token')
+    addToken(token)
   }
 }

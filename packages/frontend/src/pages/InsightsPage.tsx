@@ -1,14 +1,15 @@
 import { useRef, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useInsights } from '../hooks/useInsights'
 
 interface InsightsPageProps {
-  searchId: string
   token: string
-  onBack: () => void
 }
 
-export function InsightsPage({ searchId, token, onBack }: InsightsPageProps) {
-  const { data, pipelineEvents, status, isConnected, loading, error } = useInsights(searchId, token)
+export function InsightsPage({ token }: InsightsPageProps) {
+  const { id: searchId } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { data, pipelineEvents, status, isConnected, loading, error } = useInsights(searchId!, token)
   const timelineEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function InsightsPage({ searchId, token, onBack }: InsightsPageProps) {
       <div className="container-wide">
         <div className="alert alert-error">
           <p>{error}</p>
-          <button className="btn" onClick={onBack}>Back to search</button>
+          <button className="btn" onClick={() => navigate(`/search/${searchId}`)}>Back to results</button>
         </div>
       </div>
     )
