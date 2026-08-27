@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.6](https://github.com/dachrisch/ai-job-search/compare/v0.11.5...v0.11.6) (2026-08-27)
+
+
+### Bug Fixes
+
+* preserve original URL formatting when stripping tracking params ([07a0204](https://github.com/dachrisch/ai-job-search/commit/07a0204977fe921fd9144e39e63b90d423929de7))
+* repair job discovery after broken query generation ([3ae807f](https://github.com/dachrisch/ai-job-search/commit/3ae807f7e2a33ecadf343902d787b2fce30b0cd7))
+
 ## [0.11.5](https://github.com/dachrisch/ai-job-search/compare/v0.11.4...v0.11.5) (2026-08-27)
 
 
