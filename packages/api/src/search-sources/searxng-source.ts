@@ -387,10 +387,9 @@ Return ONLY a valid JSON array of URLs, in the order you would crawl them (best 
       if (!isAtsHost) {
         // Drop tracking/query params (e.g. ?msockid=) so the same page isn't
         // discovered as multiple "companies" and so we crawl the stable root.
-        const stripped = new URL(url)
-        stripped.search = ''
-        stripped.hash = ''
-        return stripped.toString()
+        // Preserve the original formatting (no re-serialization, which would
+        // add trailing slashes and break URL matching in classification).
+        return url.split(/[?#]/)[0]
       }
 
       const firstSegment = u.pathname.split('/').filter(Boolean)[0]
