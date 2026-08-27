@@ -17,6 +17,7 @@
     "cheerio": "^1.2.0",
     "dotenv": "^17.0.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.0.0",

@@ -3,10 +3,24 @@ import jwt from 'jsonwebtoken'
 import { UserModel } from '../db/models.js'
 import { AuthResponse } from '@job-search/shared'
 import { addToken } from './denylist.js'
+import { validatePassword } from './password-policy.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
+const JWT_ISSUER = process.env.JWT_ISSUER || 'ai-job-search'
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE || 'ai-job-search-clients'
+
+const JWT_OPTIONS: jwt.SignOptions = {
+  expiresIn: '7d',
+  issuer: JWT_ISSUER,
+  audience: JWT_AUDIENCE,
+}
 
 export async function registerUser(email: string, password: string): Promise<AuthResponse> {
+  const policy = validatePassword(password)
+  if (!policy.valid) {
+    throw new Error(policy.error || 'Password does not meet policy requirements')
+  }
+
   const existing = await UserModel.findOne({ email })
   if (existing) {
     throw new Error('Email already exists')
@@ -15,7 +29,7 @@ export async function registerUser(email: string, password: string): Promise<Aut
   const passwordHash = await bcrypt.hash(password, 10)
   const user = await UserModel.create({ email, passwordHash })
 
-  const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
+  const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, JWT_OPTIONS)
   return { userId: user._id.toString(), token }
 }
 
@@ -30,13 +44,20 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
     throw new Error('Invalid credentials')
   }
 
-  const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' })
+  const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, JWT_OPTIONS)
   return { userId: user._id.toString(), token }
 }
 
 export function verifyToken(token: string): { userId: string; email: string } {
-  const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string }
-  return decoded
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    }) as { userId: string; email: string }
+    return decoded
+  } catch {
+    throw new Error('Invalid token')
+  }
 }
 
 export async function getUser(userId: string) {

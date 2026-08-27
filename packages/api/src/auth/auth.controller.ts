@@ -4,6 +4,7 @@ import {
   getUser, updateProfile, changePassword, deleteUser, logoutUser
 } from './auth.service.js'
 import { isDenied } from './denylist.js'
+import { validatePassword } from './password-policy.js'
 
 export async function handleRegister(req: Request, res: Response, next: NextFunction) {
   try {
@@ -11,6 +12,12 @@ export async function handleRegister(req: Request, res: Response, next: NextFunc
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' })
     }
+
+    const policy = validatePassword(password)
+    if (!policy.valid) {
+      return res.status(400).json({ error: policy.error })
+    }
+
     const result = await registerUser(email, password)
     res.status(201).json(result)
   } catch (error) {
@@ -72,6 +79,12 @@ export async function handleChangePassword(req: Request, res: Response, next: Ne
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current and new password required' })
     }
+
+    const policy = validatePassword(newPassword)
+    if (!policy.valid) {
+      return res.status(400).json({ error: policy.error })
+    }
+
     await changePassword(userId, currentPassword, newPassword)
     // Invalidate the current token on password change
     const authHeader = req.headers.authorization

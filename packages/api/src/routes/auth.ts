@@ -3,11 +3,12 @@ import {
   handleRegister, handleLogin, handleGetProfile, handleUpdateProfile,
   handleChangePassword, handleLogout, handleDeleteAccount, authMiddleware
 } from '../auth/auth.controller.js'
+import { registerRateLimiter, loginRateLimiter } from '../middleware/rate-limit.js'
 
 const router = Router()
 
-router.post('/register', handleRegister)
-router.post('/login', handleLogin)
+router.post('/register', registerRateLimiter, handleRegister)
+router.post('/login', loginRateLimiter, handleLogin)
 
 // Protected profile/account routes
 router.get('/me', authMiddleware, handleGetProfile)
