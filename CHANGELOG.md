@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.3](https://github.com/dachrisch/ai-job-search/compare/v0.11.2...v0.11.3) (2026-08-27)
+
+
+### Bug Fixes
+
+* session-scoped companies + profile & history UX (audit Phase 2 & 3) ([e76d96e](https://github.com/dachrisch/ai-job-search/commit/e76d96ee1814e2f4034f49cc39ca88e1b353dbaf))
+* session-scoped companies + profile & history UX (Phase 2 & 3) ([7b84b27](https://github.com/dachrisch/ai-job-search/commit/7b84b27a8220238c12e7cdf7ea4f42be2c7611bf))
+
 ## [0.11.2](https://github.com/dachrisch/ai-job-search/compare/v0.11.1...v0.11.2) (2026-08-26)
 
 
