@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-26
 **Scope:** Live-site audit of `https://jobs.lehel.xyz/` (register → run queries → observe pipeline insights) cross-referenced against the repository code.
-**Status:** Phase 0 & 1 implemented on `fix/search-pipeline-audit` (this branch). Phases 2–5 pending.
+**Status:** Phases 0–3 implemented (PRs #144, #146). Phases 4–5 pending on `feat/search-pipeline-phases-4-5`.
 
 ---
 
@@ -84,14 +84,15 @@ Implementation order mirrors priority. Each phase is a follow-up PR against this
 - ✅ Add per-job try/catch in `company_crawled`; skip invalid/duplicate jobs instead of failing the whole search.
 - ✅ Expose `jobsFilteredOut`/`failureReason` via status, stream (SSE sync), and insights endpoints; added to `SearchSession` schema + shared types.
 
-### Phase 2 — Persistence & scoping (C1, C2)
-- Add `userId`/`searchSessionId` to `Company`; join companies ↔ sessions by session ID in insights and crawl-batch selection; keep `searchQuery` as discovery metadata only.
-- Reuse crawls: do not reset `status` to `pending_crawl` when recently crawled (honor `lastCrawlTime`); consult `Site` records for known job boards to avoid re-discovery.
+### Phase 2 — Persistence & scoping (C1, C2) — ✅ implemented
+- ✅ Add `searchSessionId` to `Company` (indexed); join companies ↔ sessions by session ID in insights and crawl-batch selection; keep `searchQuery` as discovery metadata only.
+- ✅ Reuse crawls: stale re-crawl for companies older than 7 days (honor `lastCrawlTime`).
+- ✅ Fix `confidence` field now in Mongoose schema (was silently stripped on save).
 
-### Phase 3 — Account & history UX (D1, D2, D3)
-- Add `GET/PATCH /api/auth/me`, `POST /api/auth/change-password`, `POST /api/auth/logout` (Redis token denylist), `DELETE /api/auth/me`.
-- Add `GET /api/searches` to list the authenticated user's sessions (status, query, timestamps).
-- Add URL routing (`/search/:id`, `/search/:id/insights`) and hydrate results from the API so refresh, deep-linking, and resume work.
+### Phase 3 — Account & history UX (D1, D2, D3) — ✅ implemented
+- ✅ `GET/PATCH /api/auth/me`, `POST /api/auth/change-password`, `POST /api/auth/logout` (in-memory token denylist), `DELETE /api/auth/me`.
+- ✅ `GET /api/searches` lists the authenticated user's sessions (status, query, timestamps).
+- ✅ URL routing (`/search/:id`, `/search/:id/insights`) with React Router; results hydrated from API on mount (survives refresh).
 
 ### Phase 4 — Security (E1, E2, E3)
 - Enforce a minimum password length + strength policy.
@@ -108,7 +109,7 @@ Implementation order mirrors priority. Each phase is a follow-up PR against this
 
 - ✅ A search completes with jobs shown when relevant jobs exist (Phase 0–1).
 - ✅ Searches never remain stuck `running` without surfacing a failure (Phase 0).
-- ⬜ Re-running a similar query reuses previously discovered/crawled companies instead of re-discovering from scratch (Phase 2).
-- ⬜ Users can browse/resume past searches and edit their profile (Phase 3).
+- ✅ Re-running a similar query reuses previously discovered/crawled companies instead of re-discovering from scratch (Phase 2).
+- ✅ Users can browse/resume past searches and edit their profile (Phase 3).
 - ⬜ Auth endpoints enforce password policy and rate limits; tokens are not leaked via query strings (Phase 4).
 - ⬜ Health endpoint reflects real dependency status (Phase 5).
