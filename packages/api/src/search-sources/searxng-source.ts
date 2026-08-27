@@ -170,8 +170,11 @@ Return ONLY valid JSON:
 
 Guidelines:
 - Return exactly ${QUERIES_PER_ROUND} queries
+- PRESERVE GEOGRAPHY: if the user's search includes a location (city, region, country), the location MUST appear in every single query. Never drop it.
+- When a location is given, broaden coverage by also using metro-area and regional synonyms so you don't miss nearby postings. For a city, include the greater metro area AND the state/region in separate queries (e.g. "München" → also "Großraum München", "München Umgebung", "Bayern", "Oberbayern"; "Munich" → "Greater Munich", "Bavaria"). Mix the local-language and English spellings of both the role and the location.
+- VARY THE JOB TITLE: don't repeat the exact role verbatim in every query. Include synonyms, alternate spellings, and related titles so you catch more postings. For the role, use local-language and English variants plus seniority/specialization variants (e.g. "Product Manager" → "Produktmanager", "Product Owner", "Junior Product Manager", "Senior Product Manager", "Associate Product Manager"; "Software Engineer" → "Softwareentwickler", "Backend Engineer", "Entwickler"). Always keep the location on these variant queries too.
 - Mix German and English long-tail phrasings built around the user's search, e.g. "<query> stellenangebote", "<query> wir suchen", "<query> jobs Mittelstand", "<query> startup"
-- Include direct ATS-domain searches such as "<query> site:jobs.ashbyhq.com", "<query> site:apply.workable.com", and greenhouse/lever/personio/softgarden job boards — startups and SMEs cluster on these platforms
+- Include direct ATS-domain searches such as "<query> site:jobs.ashbyhq.com", "<query> site:apply.workable.com", and greenhouse/lever/personio/softgarden job boards — startups and SMEs cluster on these platforms. Keep the location in these site-scoped queries too.
 - Add negative filters (e.g. -site:linkedin.com -site:indeed.com -site:stepstone.de -site:xing.com) to push down aggregators
 - Bias toward queries that surface small/medium companies rather than global corporations`
 

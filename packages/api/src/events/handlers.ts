@@ -609,6 +609,19 @@ export const eventHandlers = {
           jobIds: storedJobs.map(j => j._id.toString())
         })
       }
+
+      // Finalization: once every discovered company has been crawled there is
+      // nothing left to do, so evaluate and finish the search. Without this, a
+      // session crawls all companies but stays stuck in "running" forever — the
+      // completion signal otherwise only existed on the legacy jobs_scraped path.
+      const pendingCompanies = await CompanyModel.countDocuments({
+        searchSessionId: session._id.toString(),
+        status: 'pending_crawl'
+      })
+      if (isSessionActive(session) && pendingCompanies === 0) {
+        const totalStored = await JobModel.countDocuments({ searchSessionId: session._id })
+        await addEvent('search_evaluation', { searchId: data.searchId, jobsFound: totalStored })
+      }
     } catch (error) {
       console.error('Error in company_crawled handler:', error)
       await addEvent('search_failed', { searchId: data.searchId, error: String(error) })
@@ -1125,11 +1138,15 @@ ${jobDetails}`
       // Get all jobs for this search
       const jobs = await JobModel.find({ searchSessionId: data.searchId })
 
-      // Ask opencode to rank and score jobs
-      const jobDetails = jobs
-        .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nLocation: ${j.location}`)
-        .join('\n')
-      const rankingPrompt = `Rank these jobs by how well they match "${session.query}".
+      // Ask opencode to rank and score jobs. The jobs are already extracted and
+      // visible to the user, so a failure here must NOT leave the search stuck in
+      // "running" — we always mark the session complete below, with best-effort scoring.
+      let scores: Array<{ jobId: string; matchScore: number; reasoning: string }> = []
+      try {
+        const jobDetails = jobs
+          .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nLocation: ${j.location}`)
+          .join('\n')
+        const rankingPrompt = `Rank these jobs by how well they match "${session.query}".
 For each job, provide a matchScore (0-100) and a brief reasoning.
 
 Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "reasoning": "..." }] }
@@ -1137,29 +1154,34 @@ Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "rea
 Jobs to rank:
 ${jobDetails}`
 
-      await emitPipelineEvent(data.searchId, 'final_ranking_prompt', 'prompt', 'Final LLM ranking prompt', rankingPrompt, { jobCount: jobs.length }, sseManager)
-      const parsed = await callLLMJson<{ scores: Array<{ jobId: string; matchScore: number; reasoning: string }> }>(rankingPrompt)
-      const scores = parsed.scores || []
+        await emitPipelineEvent(data.searchId, 'final_ranking_prompt', 'prompt', 'Final LLM ranking prompt', rankingPrompt, { jobCount: jobs.length }, sseManager)
+        const parsed = await callLLMJson<{ scores: Array<{ jobId: string; matchScore: number; reasoning: string }> }>(rankingPrompt)
+        scores = parsed.scores || []
 
-      await emitPipelineEvent(data.searchId, 'final_ranking_response', 'response', `AI final ranking complete (${scores.length} jobs)`, JSON.stringify(scores), { scoredCount: scores.length }, sseManager)
+        await emitPipelineEvent(data.searchId, 'final_ranking_response', 'response', `AI final ranking complete (${scores.length} jobs)`, JSON.stringify(scores), { scoredCount: scores.length }, sseManager)
 
-      // Apply the final ranking to each job's matchScore (B3).
-      for (const score of scores) {
-        const jobId = score.jobId
-        const currentJob = jobs.find(j => j._id.toString() === jobId)
-        if (!currentJob) continue
-        await JobModel.findByIdAndUpdate(jobId, {
-          matchScore: score.matchScore,
-          matchReasoning: score.reasoning,
-          scoredAt: new Date(),
-          scoredVersion: (currentJob.scoredVersion || 0) + 1
-        })
+        // Apply the final ranking to each job's matchScore (B3).
+        for (const score of scores) {
+          const jobId = score.jobId
+          const currentJob = jobs.find(j => j._id.toString() === jobId)
+          if (!currentJob) continue
+          await JobModel.findByIdAndUpdate(jobId, {
+            matchScore: score.matchScore,
+            matchReasoning: score.reasoning,
+            scoredAt: new Date(),
+            scoredVersion: (currentJob.scoredVersion || 0) + 1
+          })
+        }
+
+        session.conversationHistory.push(
+          { role: 'user', content: rankingPrompt },
+          { role: 'assistant', content: JSON.stringify(scores) }
+        )
+      } catch (rankingError) {
+        console.error('Final ranking failed; completing search without scores:', rankingError)
+        await emitPipelineEvent(data.searchId, 'final_ranking_error', 'error', 'Final ranking failed; showing unscored results', String(rankingError), undefined, sseManager)
       }
 
-      session.conversationHistory.push(
-        { role: 'user', content: rankingPrompt },
-        { role: 'assistant', content: JSON.stringify(scores) }
-      )
       session.status = 'complete'
       session.completedAt = new Date()
       session.jobsScored = (session.jobsScored || 0) + scores.length

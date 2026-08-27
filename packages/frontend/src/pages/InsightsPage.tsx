@@ -43,6 +43,9 @@ export function InsightsPage({ token }: InsightsPageProps) {
           <p className="insights-query">Query: {data?.query}</p>
         </div>
         <div className="insights-status-row">
+          <button className="btn btn-ghost" onClick={() => navigate(`/search/${searchId}`)}>
+            ← Back to results
+          </button>
           <span className={`status-badge status-badge--${status}`}>
             {status === 'running' && <span className="status-dot" />}
             {status}

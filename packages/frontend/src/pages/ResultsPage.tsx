@@ -45,7 +45,11 @@ export function ResultsPage({ token }: ResultsPageProps) {
 
   // Merge: SSE jobs take priority when available, fall back to hydrated jobs
   const jobs = sseJobs.length > 0 ? sseJobs : hydratedJobs
-  const status = (sseStatus || hydratedStatus) as 'running' | 'complete' | 'failed'
+  // Prefer the REST API's authoritative terminal status (complete/failed) over the
+  // SSE default of 'running', so a finished search never appears stuck as running.
+  const status = (hydratedStatus && hydratedStatus !== 'running'
+    ? hydratedStatus
+    : sseStatus) as 'running' | 'complete' | 'failed'
   const isSearchRunning = status === 'running'
   const sortedJobs = [...jobs].sort((a: any, b: any) => (b.matchScore || 0) - (a.matchScore || 0))
 
