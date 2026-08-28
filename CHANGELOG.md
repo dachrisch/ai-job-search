@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.7](https://github.com/dachrisch/ai-job-search/compare/v0.11.6...v0.11.7) (2026-08-28)
+
+
+### Bug Fixes
+
+* **deps:** update dependency pydantic to v2.13.5 ([#153](https://github.com/dachrisch/ai-job-search/issues/153)) ([3e08bb2](https://github.com/dachrisch/ai-job-search/commit/3e08bb2f1541bcfe3b4cab358e82286d668fa30a))
+
 ## [0.11.6](https://github.com/dachrisch/ai-job-search/compare/v0.11.5...v0.11.6) (2026-08-27)
 
 
