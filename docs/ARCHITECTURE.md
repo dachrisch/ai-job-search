@@ -113,7 +113,7 @@ The Job Search Platform is a modular, event-driven system that enables intellige
 ### opencode AI Client
 
 **Technology Stack:**
-- opencode agent API (opencode.lehel.xyz)
+- opencode agent API (code.lehel.xyz)
 - HTTP client: session create → prompt → poll for reply
 - Model tiers with retry + failover
 
@@ -382,7 +382,7 @@ CRAWLER_PORT=8000
 | Runtime | Node.js | 20.x |
 | Crawler | Scrapy | Latest |
 | Crawler | Python | 3.9+ |
-| AI | opencode agent | opencode.lehel.xyz |
+| AI | opencode agent | code.lehel.xyz |
 
 ---
 

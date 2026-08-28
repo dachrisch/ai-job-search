@@ -122,7 +122,7 @@ The API requires three external services (either Docker containers or remote):
 
 1. **MongoDB** - Stores all data (users, searches, jobs)
 2. **Redis** - Powers BullMQ event queue for background jobs
-3. **opencode** - AI agent backend at `opencode.lehel.xyz`, requires `OPENCODE_API_KEY` (managed via the servyy-container infra repo)
+3. **opencode** - AI agent backend at `code.lehel.xyz`, requires `OPENCODE_API_KEY` (managed via the servyy-container infra repo)
 4. **SearXNG** - Web search at `search.lehel.xyz`, requires `SEARXNG_TOKEN`
 
 All three can be started with `docker-compose up -d` or are available on servyy-test.lxd.

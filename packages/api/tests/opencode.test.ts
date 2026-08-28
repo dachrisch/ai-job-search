@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { callOpencode, extractFirstJsonValue, getOpenCodeBaseUrl } from '../src/ai/opencode.js'
 
-const BASE = 'https://opencode.lehel.xyz'
+const BASE = 'http://code.lehel.xyz'
 
 afterEach(() => {
   vi.unstubAllGlobals()

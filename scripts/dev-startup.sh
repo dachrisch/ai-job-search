@@ -301,7 +301,7 @@ setup_env_vars() {
     export REDIS_URL="redis://$SERVYY_TEST_IP:$REDIS_PORT"
     export SEARXNG_URL="https://search.lehel.xyz"
     export SEARXNG_TOKEN="searxng-1fb783a09636b75a906441f891ab7749"
-    export OPENCODE_BASE_URL="https://opencode.lehel.xyz"
+    export OPENCODE_BASE_URL="http://code.lehel.xyz"
     export NODE_ENV="development"
     export LOG_LEVEL="info"
 

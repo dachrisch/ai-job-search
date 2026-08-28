@@ -145,7 +145,7 @@ docker-compose down
 - **Database**: MongoDB 8.3 (Mongoose ORM)
 - **Event Queue**: BullMQ with Redis 8.6.3
 - **Web Crawler**: Scrapy, BeautifulSoup, Python 3.9+
-- **AI Integration**: opencode agent API (opencode.lehel.xyz)
+- **AI Integration**: opencode agent API (code.lehel.xyz)
 - **Authentication**: JWT (jsonwebtoken)
 - **Testing**: Vitest, MongoDB Memory Server
 
