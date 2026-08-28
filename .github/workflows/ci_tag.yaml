@@ -50,7 +50,7 @@ jobs:
         -e MONGODB_URI=mongodb://host.docker.internal:27017/test
         -e REDIS_URL=redis://host.docker.internal:6379
         -e OPENCODE_API_KEY=ci-dummy
-        -e OPENCODE_BASE_URL=http://localhost:9999
+        -e OPENCODE_BASE_URL=https://opencode.lehel.xyz
         -e JWT_SECRET=ci-test-secret
 
   image-test-frontend:
