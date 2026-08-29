@@ -38,7 +38,7 @@ This document tracks the implementation status of features across the entire pla
 ### AI Backend (opencode)
 - **Status:** ✅ IMPLEMENTED
 - **Details:**
-  - Shared opencode agent API (`opencode.lehel.xyz`) with `OPENCODE_API_KEY`
+  - Shared opencode agent API (`code.lehel.xyz`) with `OPENCODE_API_KEY`
   - Key managed in the servyy-container infra repo (deploy-time injection)
   - Used for hidden-gem company discovery, classification, scoring, and job ranking
   - No per-user token flow required

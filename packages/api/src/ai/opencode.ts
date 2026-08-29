@@ -1,4 +1,4 @@
-// Thin HTTP client for the shared opencode instance (opencode.lehel.xyz).
+// Thin HTTP client for the shared opencode instance (code.lehel.xyz).
 // Same contract the dontforget project uses, verified live against the API:
 //   POST /api/session            -> {"data": {"id": "ses_...", ...}}
 //   POST /api/session/:id/prompt -> {"data": {...}} (an ack, not the reply)
@@ -27,7 +27,7 @@ interface OpenCodeModel {
 }
 
 export function getOpenCodeBaseUrl(): string {
-  return process.env.OPENCODE_BASE_URL || 'https://opencode.lehel.xyz'
+  return process.env.OPENCODE_BASE_URL || 'http://code.lehel.xyz'
 }
 
 function getApiKey(): string {
