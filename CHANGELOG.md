@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.8](https://github.com/dachrisch/ai-job-search/compare/v0.11.7...v0.11.8) (2026-08-31)
+
+
+### Bug Fixes
+
+* **deps:** lock file maintenance ([#156](https://github.com/dachrisch/ai-job-search/issues/156)) ([4b22e48](https://github.com/dachrisch/ai-job-search/commit/4b22e481a4e8958934432405c94cbf1e44edc862))
+
 ## [0.11.7](https://github.com/dachrisch/ai-job-search/compare/v0.11.6...v0.11.7) (2026-08-28)
 
 
