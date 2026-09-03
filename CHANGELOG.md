@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.9](https://github.com/dachrisch/ai-job-search/compare/v0.11.8...v0.11.9) (2026-09-03)
+
+
+### Bug Fixes
+
+* **deps:** update vitest monorepo to v5 ([#158](https://github.com/dachrisch/ai-job-search/issues/158)) ([5d98db2](https://github.com/dachrisch/ai-job-search/commit/5d98db2b847520bfe1166577fdd16fcbf4f01e03))
+
 ## [0.11.8](https://github.com/dachrisch/ai-job-search/compare/v0.11.7...v0.11.8) (2026-08-31)
 
 
