@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.12](https://github.com/dachrisch/ai-job-search/compare/v0.11.11...v0.11.12) (2026-09-11)
+
+
+### Bug Fixes
+
+* **api:** redact MongoDB credentials from startup logs ([0860ddf](https://github.com/dachrisch/ai-job-search/commit/0860ddf777b972b82a387afbe5c8144cf5405f35))
+
 ## [0.11.11](https://github.com/dachrisch/ai-job-search/compare/v0.11.10...v0.11.11) (2026-09-10)
 
 
