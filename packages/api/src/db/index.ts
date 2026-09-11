@@ -2,11 +2,10 @@ import mongoose from 'mongoose'
 
 export async function connectDB(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/job-search'
-
-  console.log(`  [DEBUG] MONGODB_URI env: "${process.env.MONGODB_URI}"`)
+  const redactedUri = mongoUri.replace(/\/\/[^@/]+@/, '//***:***@')
 
   try {
-    console.log('  Connecting to:', mongoUri)
+    console.log('  Connecting to:', redactedUri)
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000,
