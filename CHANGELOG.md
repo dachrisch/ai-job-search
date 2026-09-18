@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.14](https://github.com/dachrisch/ai-job-search/compare/v0.11.13...v0.11.14) (2026-09-18)
+
+
+### Bug Fixes
+
+* **deps:** update dependency dotenv to v18 ([6fb3052](https://github.com/dachrisch/ai-job-search/commit/6fb305298de5bac237f77c38d3da511b48e4b212))
+* **deps:** update dependency dotenv to v18 ([4236c23](https://github.com/dachrisch/ai-job-search/commit/4236c23b6b3af2ca288676c8a914a52bed511044))
+
 ## [0.11.13](https://github.com/dachrisch/ai-job-search/compare/v0.11.12...v0.11.13) (2026-09-14)
 
 
