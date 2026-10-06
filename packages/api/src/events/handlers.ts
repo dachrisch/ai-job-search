@@ -12,6 +12,7 @@ import { calculateKeywordMatch, passesKeywordThreshold, KeywordMatchResult } fro
 import { SearchSourceManager } from '../search-sources/searxng-source.js'
 import { SourceManager } from '../sources/manager.js'
 import { ArbeitsagenturSource } from '../sources/arbeitsagentur-source.js'
+import { parseJobQuery } from '../sources/query-parser.js'
 import { emitPipelineEvent } from '../utils/pipeline.js'
 
 const jobSourceManager = new JobSourceManager()
@@ -64,11 +65,14 @@ export const eventHandlers = {
 
       // Tier-1 sources: query-native job APIs. Additive — runs alongside the existing
       // company-discovery path. Stores jobs and joins the existing scoring pipeline.
-      await emitPipelineEvent(data.searchId, 'tier1_search', 'info', 'Querying Arbeitsagentur API', `Keywords: "${data.query}"`, { keywords: data.query }, sseManager)
+      const parsedQuery = parseJobQuery(data.query)
+      const scope = parsedQuery.location ? ` · Location: ${parsedQuery.location} (+${parsedQuery.radius} km)` : ''
+      await emitPipelineEvent(data.searchId, 'tier1_search', 'info', 'Querying Arbeitsagentur API', `Keywords: "${parsedQuery.keywords}"${scope}`, { ...parsedQuery }, sseManager)
       const sourceManager = new SourceManager([new ArbeitsagenturSource()])
-      const sourceResult = await sourceManager.search({ keywords: data.query, raw: data.query })
-      if (sourceResult.errors.length > 0) {
-        console.warn(`   ⚠️  Source errors: ${sourceResult.errors.map(e => e.message).join('; ')}`)
+      const sourceResult = await sourceManager.search({ ...parsedQuery, raw: data.query })
+      for (const sourceError of sourceResult.errors) {
+        console.warn(`   ⚠️  Source error: ${sourceError.message}`)
+        await emitPipelineEvent(data.searchId, 'tier1_error', 'error', 'Job source failed', sourceError.message, undefined, sseManager)
       }
 
       let apiJobsStored = 0

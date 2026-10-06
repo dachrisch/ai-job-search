@@ -1,140 +1,239 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { callOpencode, extractFirstJsonValue, getOpenCodeBaseUrl } from '../src/ai/opencode.js'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import {
+  callOpencode,
+  extractFirstJsonValue,
+  getOpenCodeBaseUrl,
+  resetOpencodeStateForTests,
+} from '../src/ai/opencode.js'
 
 const BASE = 'http://code.lehel.xyz'
+
+beforeEach(() => {
+  resetOpencodeStateForTests()
+  process.env.OPENCODE_RETRY_DELAY_MS = '0'
+})
 
 afterEach(() => {
   vi.unstubAllGlobals()
   delete process.env.OPENCODE_API_KEY
-  delete process.env.OPENCODE_MODEL
-  delete process.env.OPENCODE_FALLBACK_MODEL
+  delete process.env.OPENCODE_MODELS
+  delete process.env.OPENCODE_PAID_MODEL
   delete process.env.OPENCODE_BASE_URL
+  delete process.env.OPENCODE_RETRY_DELAY_MS
 })
-
-function mockFetchSequence(...responses: any[]) {
-  const fn = vi.fn()
-  responses.forEach(r => fn.mockResolvedValueOnce(r))
-  fn.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) })
-  vi.stubGlobal('fetch', fn)
-  return fn
-}
 
 function jsonResponse(ok: boolean, body: any, status = 200) {
   return { ok, status, json: async () => body }
 }
 
+const FREE = [{ input: 0, output: 0 }]
+const PAID = [{ input: 0.15, output: 0.6 }]
+
+function registryModel(providerID: string, id: string, cost = FREE, status = 'active') {
+  return { id, providerID, status, enabled: true, cost }
+}
+
+/** Live-like registry: deprecated + paid entries must never lead the chain. */
+const REGISTRY = [
+  registryModel('opencode', 'mimo-v2.5-free', FREE, 'deprecated'),
+  registryModel('opencode', 'fledge-alpha-free'),
+  registryModel('opencode', 'big-pickle'),
+  registryModel('opencode', 'mimo-v2.6-flash-free'),
+  registryModel('opencode-go', 'deepseek-v4.1-flash', PAID),
+  registryModel('opencode-go', 'glm-5.3-flash', PAID),
+  registryModel('opencode-go', 'longcat-2.5-preview-free'),
+]
+
+const reply = (text: string) =>
+  jsonResponse(true, { data: [{ type: 'assistant', finish: 'done', content: [{ type: 'text', text }] }] })
+const replyError = (message: string) =>
+  jsonResponse(true, { data: [{ type: 'assistant', finish: 'error', error: { message } }] })
+
+/**
+ * Route-based fetch stub. `models` answers GET /api/model; `perModel` decides the
+ * message-poll reply for a session based on the model it was created with.
+ */
+function mockOpencode(opts: {
+  models?: any
+  perModel?: (modelKey: string) => any
+  sessionCreate?: () => any
+}) {
+  let counter = 0
+  const sessionModel = new Map<string, string>()
+  const fn = vi.fn(async (url: string, init?: any) => {
+    const u = String(url)
+    if (u.endsWith('/api/model')) {
+      return opts.models === undefined ? jsonResponse(false, {}, 401) : jsonResponse(true, { data: opts.models })
+    }
+    if (u.endsWith('/api/session') && init?.method === 'POST') {
+      if (opts.sessionCreate) return opts.sessionCreate()
+      const id = `ses_${++counter}`
+      const model = JSON.parse(init.body).model
+      sessionModel.set(id, `${model.providerID}:${model.id}`)
+      return jsonResponse(true, { data: { id } })
+    }
+    if (u.endsWith('/prompt')) return jsonResponse(true, { data: {} })
+    const match = u.match(/\/api\/session\/(ses_\d+)\/message$/)
+    if (match) return (opts.perModel ?? (() => reply('ok')))(sessionModel.get(match[1])!)
+    throw new Error(`unexpected fetch ${u}`)
+  })
+  vi.stubGlobal('fetch', fn)
+  return fn
+}
+
+function sessionModels(fn: ReturnType<typeof vi.fn>): string[] {
+  return fn.mock.calls
+    .filter(([url, init]) => String(url).endsWith('/api/session') && init?.method === 'POST')
+    .map(([, init]) => {
+      const m = JSON.parse(init.body).model
+      return `${m.providerID}:${m.id}`
+    })
+}
+
 describe('callOpencode', () => {
   it('should create a session, send a prompt, and return the finished reply', async () => {
     process.env.OPENCODE_API_KEY = 'test-key'
+    mockOpencode({ models: REGISTRY, perModel: () => reply('{"ok":true}') })
 
-    mockFetchSequence(
-      jsonResponse(true, { data: { id: 'ses_123' } }),
-      jsonResponse(true, { data: {} }),
-      jsonResponse(true, {
-        data: [
-          {
-            type: 'assistant',
-            finish: 'done',
-            content: [{ type: 'text', text: '{"ok":true}' }],
-          },
-        ],
-      })
-    )
+    const result = await callOpencode('hello')
 
-    const reply = await callOpencode('hello')
-
-    expect(reply).toBe('{"ok":true}')
+    expect(result).toBe('{"ok":true}')
     expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session`, expect.objectContaining({ method: 'POST' }))
-    expect(fetch).toHaveBeenCalledWith(
-      `${BASE}/api/session/ses_123/prompt`,
-      expect.objectContaining({ method: 'POST' })
-    )
-    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session/ses_123/message`, expect.objectContaining({}))
+    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session/ses_1/prompt`, expect.objectContaining({ method: 'POST' }))
+    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session/ses_1/message`, expect.objectContaining({}))
   })
 
-  it('should send the X-Api-Key header', async () => {
+  it('should send the X-Api-Key header on discovery and session calls', async () => {
     process.env.OPENCODE_API_KEY = 'secret-key'
-
-    mockFetchSequence(
-      jsonResponse(true, { data: { id: 'ses_1' } }),
-      jsonResponse(true, { data: {} }),
-      jsonResponse(true, {
-        data: [{ type: 'assistant', finish: 'done', content: [{ type: 'text', text: 'ok' }] }],
-      })
-    )
+    const fn = mockOpencode({ models: REGISTRY })
 
     await callOpencode('hello')
 
-    const sessionCall = vi.mocked(fetch).mock.calls[0]
-    const headers = (sessionCall[1] as any).headers
-    expect(headers['X-Api-Key']).toBe('secret-key')
+    for (const [, init] of fn.mock.calls) {
+      expect((init as any).headers['X-Api-Key']).toBe('secret-key')
+    }
+  })
+
+  it('should lead with the preferred active free model and skip deprecated ones', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({ models: REGISTRY })
+
+    await callOpencode('hello')
+
+    expect(sessionModels(fn)).toEqual(['opencode:mimo-v2.6-flash-free'])
+  })
+
+  it('should order the chain: preferred free, other free (opencode provider only), then the paid model', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({ models: REGISTRY, perModel: () => replyError('upstream broke') })
+
+    await expect(callOpencode('hello')).rejects.toThrow(/upstream broke/)
+
+    const tried = [...new Set(sessionModels(fn))]
+    expect(tried).toEqual([
+      'opencode:mimo-v2.6-flash-free',
+      'opencode:big-pickle',
+      'opencode:fledge-alpha-free',
+      'opencode-go:deepseek-v4.1-flash',
+    ])
+  })
+
+  it('should fail over immediately on a free-usage 429 without retrying that model', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({
+      models: REGISTRY,
+      perModel: model =>
+        model === 'opencode:mimo-v2.6-flash-free'
+          ? replyError('Provider request failed with HTTP 429: {"type":"FreeUsageLimitError"}')
+          : reply(`answered by ${model}`),
+    })
+
+    const result = await callOpencode('hello')
+
+    expect(result).toBe('answered by opencode:big-pickle')
+    expect(sessionModels(fn)).toEqual(['opencode:mimo-v2.6-flash-free', 'opencode:big-pickle'])
+  })
+
+  it('should skip a quota-exhausted model on later calls (cooldown)', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({
+      models: REGISTRY,
+      perModel: model =>
+        model === 'opencode:mimo-v2.6-flash-free' ? replyError('Rate limit exceeded') : reply('ok'),
+    })
+
+    await callOpencode('first')
+    fn.mockClear()
+    await callOpencode('second')
+
+    expect(sessionModels(fn)).toEqual(['opencode:big-pickle'])
+  })
+
+  it('should fall back to the paid model when every free model is rate-limited', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    mockOpencode({
+      models: REGISTRY,
+      perModel: model => (model.startsWith('opencode:') ? replyError('HTTP 429 FreeUsageLimitError') : reply('paid ok')),
+    })
+
+    await expect(callOpencode('hello')).resolves.toBe('paid ok')
+  })
+
+  it('should use the pinned chain when model discovery is unauthorized', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({ models: undefined, perModel: () => replyError('down') })
+
+    await expect(callOpencode('hello')).rejects.toThrow(/down/)
+
+    expect([...new Set(sessionModels(fn))]).toEqual([
+      'opencode:mimo-v2.6-flash-free',
+      'opencode:big-pickle',
+      'opencode:nemotron-3.5-lightning-free',
+      'opencode:nemotron-3-ultra-free',
+      'opencode:ling-3.1-flash-free',
+      'opencode-go:deepseek-v4.1-flash',
+    ])
+  })
+
+  it('should cache discovery between calls', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({ models: REGISTRY })
+
+    await callOpencode('one')
+    await callOpencode('two')
+
+    expect(fn.mock.calls.filter(([url]) => String(url).endsWith('/api/model'))).toHaveLength(1)
+  })
+
+  it('should honor OPENCODE_MODELS and OPENCODE_PAID_MODEL overrides', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    process.env.OPENCODE_MODELS = 'opencode:big-pickle'
+    process.env.OPENCODE_PAID_MODEL = 'opencode-go:glm-5.3-flash'
+    const fn = mockOpencode({ models: REGISTRY, perModel: () => replyError('nope') })
+
+    await expect(callOpencode('hello')).rejects.toThrow()
+
+    expect([...new Set(sessionModels(fn))]).toEqual(['opencode:big-pickle', 'opencode-go:glm-5.3-flash'])
   })
 
   it('should retry then succeed on a transient session failure', async () => {
     process.env.OPENCODE_API_KEY = 'test-key'
+    let failed = false
+    const base = mockOpencode({ models: REGISTRY })
+    const impl = base.getMockImplementation()!
+    base.mockImplementation(async (url: string, init?: any) => {
+      if (String(url).endsWith('/api/session') && init?.method === 'POST' && !failed) {
+        failed = true
+        return jsonResponse(false, {}, 503)
+      }
+      return impl(url, init)
+    })
 
-    mockFetchSequence(
-      jsonResponse(false, {}, 503),
-      jsonResponse(true, { data: { id: 'ses_2' } }),
-      jsonResponse(true, { data: {} }),
-      jsonResponse(true, {
-        data: [{ type: 'assistant', finish: 'done', content: [{ type: 'text', text: 'retried' }] }],
-      })
-    )
-
-    const reply = await callOpencode('hello')
-    expect(reply).toBe('retried')
-  })
-
-  it('should fail over to the fallback model when the primary exhausts attempts', async () => {
-    process.env.OPENCODE_API_KEY = 'test-key'
-
-    const fetchMock = vi.fn()
-    fetchMock.mockResolvedValue(jsonResponse(false, {}, 503))
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(callOpencode('hello')).rejects.toThrow(/session create failed/)
-
-    // 2 models × 3 attempts = 6 session-create calls
-    const sessionCalls = vi.mocked(fetch).mock.calls.filter(call => String(call[0]).endsWith('/api/session'))
-    expect(sessionCalls).toHaveLength(6)
-    const firstModel = JSON.parse((sessionCalls[0][1] as any).body).model.id
-    const fallbackModel = JSON.parse((sessionCalls[3][1] as any).body).model.id
-    expect(firstModel).toBe('mimo-v2.5-free')
-    expect(fallbackModel).toBe('big-pickle')
-  })
-
-  it('should honor OPENCODE_MODEL / OPENCODE_FALLBACK_MODEL env overrides', async () => {
-    process.env.OPENCODE_API_KEY = 'test-key'
-    process.env.OPENCODE_MODEL = 'my-model'
-    process.env.OPENCODE_FALLBACK_MODEL = 'my-fallback'
-
-    const fetchMock = vi.fn()
-    fetchMock.mockResolvedValue(jsonResponse(false, {}, 503))
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(callOpencode('hello')).rejects.toThrow()
-
-    const firstModel = JSON.parse((vi.mocked(fetch).mock.calls[0][1] as any).body).model.id
-    expect(firstModel).toBe('my-model')
+    await expect(callOpencode('hello')).resolves.toBe('ok')
   })
 
   it('should throw when OPENCODE_API_KEY is missing', async () => {
     await expect(callOpencode('hello')).rejects.toThrow('OPENCODE_API_KEY not configured')
-  })
-
-  it('should throw when the reply errors out', async () => {
-    process.env.OPENCODE_API_KEY = 'test-key'
-
-    const fetchMock = vi.fn()
-    fetchMock.mockResolvedValue(
-      jsonResponse(true, {
-        data: [{ type: 'assistant', finish: 'error', error: { message: 'upstream 503' } }],
-      })
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(callOpencode('hello')).rejects.toThrow(/upstream 503/)
   })
 })
 

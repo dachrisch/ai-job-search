@@ -5,6 +5,7 @@ import {
   emptyResponse,
   partialJobResponse,
   malformedResponse,
+  pageResponse,
 } from './arbeitsagentur-source.fixtures'
 
 // Explicit factory + resetModules + dynamic import (the pattern crawl-company-handler.test.ts
@@ -28,15 +29,17 @@ describe('ArbeitsagenturSource', () => {
     source = new ArbeitsagenturSource()
   })
 
-  it('queries the API with was= and maps postings to SourceJobs', async () => {
+  it('queries the v6 API with was= and maps postings to SourceJobs', async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: twoJobsResponse } as any)
 
-    const result = await source.search({ keywords: 'python entwickler', raw: 'python entwickler' })
+    const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
 
-    // Called the jobs endpoint with the keyword and the public API key header
+    // Called the v6 jobs endpoint with the keyword, page size 50 and the public API key header
     const [calledUrl, calledConfig] = vi.mocked(axios.get).mock.calls[0] as [string, any]
-    expect(calledUrl).toContain('/jobsuche-service/pc/v4/jobs')
-    expect(calledConfig?.params?.was).toBe('python entwickler')
+    expect(calledUrl).toContain('/jobsuche-service/pc/v6/jobs')
+    expect(calledConfig?.params?.was).toBe('product manager')
+    expect(calledConfig?.params?.size).toBe(50)
+    expect(calledConfig?.params?.page).toBe(1)
     expect(calledConfig?.headers?.['X-API-Key']).toBe('jobboerse-jobsuche')
 
     // Mapped two jobs correctly
@@ -45,12 +48,57 @@ describe('ArbeitsagenturSource', () => {
     expect(result.jobs).toHaveLength(2)
 
     const first = result.jobs[0]
-    expect(first.title).toBe('Senior Python Entwickler (m/w/d)')
-    expect(first.company).toBe('ACME GmbH')
-    expect(first.location).toBe('Berlin')
+    expect(first.title).toBe('Product Manager (m/w/d)')
+    expect(first.company).toBe('Edenred Deutschland GmbH')
+    expect(first.location).toBe('München')
     expect(first.sourceUrl).toBe('https://www.arbeitsagentur.de/jobsuche/')
-    expect(first.url).toContain('10000-1198765432-S')
-    expect(first.description.length).toBeGreaterThan(0)
+    expect(first.url).toBe('https://www.arbeitsagentur.de/jobsuche/jobdetail/10001-1003266561-S')
+  })
+
+  it('builds the description from the structured v6 fields', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: twoJobsResponse } as any)
+
+    const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
+
+    const description = result.jobs[0].description
+    expect(description).toContain('Product Manager (m/w/d) bei Edenred Deutschland GmbH in München')
+    expect(description).toContain('Produktentwickler/in')
+    expect(description).toContain('58.000–70.000 EUR')
+    expect(description).toContain('Homeoffice möglich')
+    expect(description).toContain('2026-06-22')
+  })
+
+  it('fetches a second page only when the first page is full', async () => {
+    vi.mocked(axios.get)
+      .mockResolvedValueOnce({ data: pageResponse('p1', 50) } as any)
+      .mockResolvedValueOnce({ data: pageResponse('p2', 20) } as any)
+
+    const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
+
+    expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(2)
+    const [, secondConfig] = vi.mocked(axios.get).mock.calls[1] as [string, any]
+    expect(secondConfig?.params?.page).toBe(2)
+    expect(result.jobs).toHaveLength(70)
+  })
+
+  it('stops after the first page when it is not full', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: twoJobsResponse } as any)
+
+    await source.search({ keywords: 'product manager', raw: 'product manager' })
+
+    expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(1)
+  })
+
+  it('dedupes postings that appear on both pages', async () => {
+    const page1 = pageResponse('p1', 50)
+    const page2 = { ...pageResponse('p2', 10), ergebnisliste: [...pageResponse('p2', 10).ergebnisliste, page1.ergebnisliste[0]] }
+    vi.mocked(axios.get)
+      .mockResolvedValueOnce({ data: page1 } as any)
+      .mockResolvedValueOnce({ data: page2 } as any)
+
+    const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
+
+    expect(result.jobs).toHaveLength(60)
   })
 
   it('returns no jobs and no errors for an empty result set', async () => {

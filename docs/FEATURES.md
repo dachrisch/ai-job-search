@@ -122,9 +122,9 @@ This document tracks the implementation status of features across the entire pla
   - opencode agent proposes diverse SearXNG queries biased toward hidden-gem employers
   - Backend executes paginated SearXNG searches; agent classifies + scores career pages (hiddenGemScore, sizeBand, sizeSignals)
   - Bounded refinement rounds then agent prioritizes crawl candidates
-  - Jobs scored/ranked via opencode (model `mimo-v2.5-free`, fallback `big-pickle`)
+  - Jobs scored/ranked via opencode (active free models discovered from the opencode registry, paid fallback `opencode-go:deepseek-v4.1-flash`)
 - **Tests:** Unit tested
-- **Model:** opencode model overridable via `OPENCODE_MODEL` / `OPENCODE_FALLBACK_MODEL`
+- **Model:** free chain overridable via `OPENCODE_MODELS`, paid fallback via `OPENCODE_PAID_MODEL` (both `provider:id`); quota-exhausted models cool down for 15 min
 
 ### Initial Query Analysis
 - **Status:** ✅ IMPLEMENTED
