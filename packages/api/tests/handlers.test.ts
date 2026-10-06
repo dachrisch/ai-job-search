@@ -50,10 +50,16 @@ vi.mock('../src/search-sources/searxng-source')
 // Plain class — unambiguously a constructor under vitest's isolate:false, where a
 // vi.fn().mockImplementation factory could resolve to a non-constructor depending on
 // file order (passed locally, failed in CI). The Tier-1 block is a no-op in these tests.
+// `tier1` lets individual tests inspect the query and inject a result; it is reset in beforeEach.
+const tier1 = vi.hoisted(() => ({
+  queries: [] as any[],
+  result: { source: 'source-manager', jobs: [] as any[], errors: [] as Array<{ message: string }> },
+}))
 vi.mock('../src/sources/manager', () => ({
   SourceManager: class {
-    async search() {
-      return { source: 'source-manager', jobs: [], errors: [] }
+    async search(query: any) {
+      tier1.queries.push(query)
+      return tier1.result
     }
   },
 }))
@@ -71,6 +77,8 @@ describe('Event Handlers', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    tier1.queries = []
+    tier1.result = { source: 'source-manager', jobs: [], errors: [] }
 
     // Setup mock session
     mockSession = {
@@ -169,6 +177,57 @@ describe('Event Handlers', () => {
       expect(addEvent).toHaveBeenCalledWith('search_failed', {
         searchId: 'session-123',
         error: expect.stringContaining('No jobs found'),
+      })
+    })
+
+    it('should pass the parsed role and location to the Tier-1 sources', async () => {
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(SearchSourceManager).mockImplementation(
+        function () {
+          return { discoverCompanies: vi.fn().mockResolvedValue([]) } as any
+        }
+      )
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.search_started(
+        { searchId: 'session-123', userId: 'user-123', query: 'Product Manager in Munich' },
+        sseManager
+      )
+
+      expect(tier1.queries[0]).toEqual({
+        keywords: 'Product Manager',
+        location: 'München',
+        radius: 25,
+        raw: 'Product Manager in Munich',
+      })
+    })
+
+    it('should emit a tier1_error pipeline event when a source fails', async () => {
+      tier1.result = {
+        source: 'source-manager',
+        jobs: [],
+        errors: [{ message: 'arbeitsagentur: Request failed with status code 403' }],
+      }
+      vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
+      vi.mocked(SearchSourceManager).mockImplementation(
+        function () {
+          return { discoverCompanies: vi.fn().mockResolvedValue([]) } as any
+        }
+      )
+      vi.mocked(addEvent).mockResolvedValue('job-1')
+
+      await eventHandlers.search_started(
+        { searchId: 'session-123', userId: 'user-123', query: 'Product Manager in Munich' },
+        sseManager
+      )
+
+      expect(sseManager.broadcast).toHaveBeenCalledWith('session-123', {
+        type: 'pipeline_event',
+        payload: expect.objectContaining({
+          step: 'tier1_error',
+          type: 'error',
+          detail: 'arbeitsagentur: Request failed with status code 403',
+        }),
       })
     })
 
