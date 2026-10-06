@@ -133,7 +133,7 @@ Frontend communicates with API via `VITE_API_URL` (defaults to `http://localhost
 
 ### Vitest Configuration
 
-⚠️ **Important**: `packages/api/vitest.config.ts` disables worker thread isolation (`isolate: false`) to avoid axios serialization errors in tests. This is intentional and required.
+`packages/api/vitest.config.ts` runs each test file isolated (`isolate: true`). The earlier `isolate: false` workaround for axios serialization errors is no longer needed on Vitest 5. It made results depend on file order, because files sharing a worker leaked real modules past each other's `vi.mock` factories.
 
 ---
 
