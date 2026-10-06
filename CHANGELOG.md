@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.11.21](https://github.com/dachrisch/ai-job-search/compare/v0.11.20...v0.11.21) (2026-10-06)
+
+
+### Bug Fixes
+
+* **api:** Arbeitsagentur v6 + free-model discovery with paid DeepSeek fallback ([1fe184d](https://github.com/dachrisch/ai-job-search/commit/1fe184de0e39c4749ae48b72def31500404a0369))
+* **api:** discover free opencode models and fall back to paid DeepSeek ([48fb925](https://github.com/dachrisch/ai-job-search/commit/48fb925ab0bec5475ec6d2815516419dd9b90a9e))
+* **api:** move Arbeitsagentur source to v6 and scope by location ([f3a915b](https://github.com/dachrisch/ai-job-search/commit/f3a915b236bd4f332d6be7d60744410d591cf28f))
+* **test:** isolate API test files to remove order-dependent failures ([4722032](https://github.com/dachrisch/ai-job-search/commit/472203276f4754df653ff90169ec3ed6be540efa))
+* **test:** isolate API test files to remove order-dependent failures ([de45c06](https://github.com/dachrisch/ai-job-search/commit/de45c06a85f130faf0e337e3603b476d9df71283))
+
 ## [0.11.20](https://github.com/dachrisch/ai-job-search/compare/v0.11.19...v0.11.20) (2026-10-05)
 
 
