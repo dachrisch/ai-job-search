@@ -11,6 +11,8 @@ const BASE = 'http://code.lehel.xyz'
 beforeEach(() => {
   resetOpencodeStateForTests()
   process.env.OPENCODE_RETRY_DELAY_MS = '0'
+  process.env.OPENCODE_POLL_INTERVAL_MS = '1'
+  process.env.OPENCODE_UNAVAILABLE_RETRY_MS = '0'
 })
 
 afterEach(() => {
@@ -20,6 +22,10 @@ afterEach(() => {
   delete process.env.OPENCODE_PAID_MODEL
   delete process.env.OPENCODE_BASE_URL
   delete process.env.OPENCODE_RETRY_DELAY_MS
+  delete process.env.OPENCODE_POLL_INTERVAL_MS
+  delete process.env.OPENCODE_POLL_TIMEOUT_MS
+  delete process.env.OPENCODE_UNAVAILABLE_RETRY_MS
+  vi.restoreAllMocks()
 })
 
 function jsonResponse(ok: boolean, body: any, status = 200) {
@@ -46,6 +52,8 @@ const REGISTRY = [
 
 const reply = (text: string) =>
   jsonResponse(true, { data: [{ type: 'assistant', finish: 'done', content: [{ type: 'text', text }] }] })
+const pending = () => jsonResponse(true, { data: [{ type: 'assistant' }] })
+const edge = (status: number, text: string) => ({ ok: false, status, json: async () => { throw new Error('not json') }, text: async () => text })
 const replyError = (message: string) =>
   jsonResponse(true, { data: [{ type: 'assistant', finish: 'error', error: { message } }] })
 
@@ -230,6 +238,88 @@ describe('callOpencode', () => {
     })
 
     await expect(callOpencode('hello')).resolves.toBe('ok')
+  })
+
+  it('should move on after a single hung attempt and cool the hung model down', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    process.env.OPENCODE_POLL_TIMEOUT_MS = '20'
+    const fn = mockOpencode({
+      models: REGISTRY,
+      perModel: model => (model === 'opencode:mimo-v2.6-flash-free' ? pending() : reply(`answered by ${model}`)),
+    })
+
+    await expect(callOpencode('first')).resolves.toBe('answered by opencode:big-pickle')
+    expect(sessionModels(fn)).toEqual(['opencode:mimo-v2.6-flash-free', 'opencode:big-pickle'])
+
+    fn.mockClear()
+    await callOpencode('second')
+    expect(sessionModels(fn)).toEqual(['opencode:big-pickle'])
+  })
+
+  it('should log every failed attempt with model and reason', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockOpencode({
+      models: REGISTRY,
+      perModel: model =>
+        model === 'opencode:mimo-v2.6-flash-free' ? replyError('HTTP 429 FreeUsageLimitError') : reply('ok'),
+    })
+
+    await callOpencode('hello')
+
+    const lines = warn.mock.calls.map(c => String(c[0]))
+    expect(lines.some(l => l.includes('opencode:mimo-v2.6-flash-free') && l.includes('FreeUsageLimitError'))).toBe(true)
+  })
+
+  it('should wait out an opencode restart on the same model instead of failing over (edge 405)', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    let creates = 0
+    const fn = mockOpencode({ models: REGISTRY })
+    const impl = fn.getMockImplementation()!
+    fn.mockImplementation(async (url: string, init?: any) => {
+      if (String(url).endsWith('/api/session') && init?.method === 'POST' && ++creates <= 4) {
+        return edge(405, 'Method Not Allowed')
+      }
+      return impl(url, init)
+    })
+
+    await expect(callOpencode('hello')).resolves.toBe('ok')
+
+    // 4 refused creates + 1 accepted, all on the first model — no failover burned
+    const models = fn.mock.calls
+      .filter(([u, i]) => String(u).endsWith('/api/session') && i?.method === 'POST')
+      .map(([, i]) => JSON.parse(i.body).model.id)
+    expect(new Set(models)).toEqual(new Set(['mimo-v2.6-flash-free']))
+  })
+
+  it('should treat 5xx and connection errors as opencode unavailable', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    let creates = 0
+    const fn = mockOpencode({ models: REGISTRY })
+    const impl = fn.getMockImplementation()!
+    fn.mockImplementation(async (url: string, init?: any) => {
+      if (String(url).endsWith('/api/session') && init?.method === 'POST') {
+        creates++
+        if (creates === 1) throw new TypeError('fetch failed')
+        if (creates === 2) return edge(502, 'Bad Gateway')
+      }
+      return impl(url, init)
+    })
+
+    await expect(callOpencode('hello')).resolves.toBe('ok')
+    expect(sessionModels(fn).every(m => m === 'opencode:mimo-v2.6-flash-free')).toBe(true)
+  })
+
+  it('should give up with an unavailable error when opencode stays down', async () => {
+    process.env.OPENCODE_API_KEY = 'test-key'
+    const fn = mockOpencode({ models: REGISTRY })
+    const impl = fn.getMockImplementation()!
+    fn.mockImplementation(async (url: string, init?: any) => {
+      if (String(url).endsWith('/api/session') && init?.method === 'POST') return edge(503, 'Service Unavailable')
+      return impl(url, init)
+    })
+
+    await expect(callOpencode('hello')).rejects.toThrow(/opencode unavailable/)
   })
 
   it('should throw when OPENCODE_API_KEY is missing', async () => {
