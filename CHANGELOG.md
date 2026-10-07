@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.23](https://github.com/dachrisch/ai-job-search/compare/v0.11.22...v0.11.23) (2026-10-07)
+
+
+### Bug Fixes
+
+* **api:** deterministic German salary grouping without full ICU ([7190c51](https://github.com/dachrisch/ai-job-search/commit/7190c519390e8aa5106788351ce2454cffe093b8))
+* **api:** trust proxy for rate limiter behind nginx ([c235f34](https://github.com/dachrisch/ai-job-search/commit/c235f34b8ed3702a2a85dbc8d8e2944754af7632))
+* **frontend:** listen on ipv6 in custom nginx conf ([07bf9f7](https://github.com/dachrisch/ai-job-search/commit/07bf9f7cbbe997b76a30ba25226a1318b257ef37))
+* **frontend:** single failure state on results page ([bba25c5](https://github.com/dachrisch/ai-job-search/commit/bba25c5f2d4a2f90ed13590d14d3319878628e45))
+* **frontend:** spa fallback try_files in nginx ([df7649e](https://github.com/dachrisch/ai-job-search/commit/df7649e8ce7c8a779e227ce39f6b98a1c568c917))
+* PR-A infra for [#187](https://github.com/dachrisch/ai-job-search/issues/187) (trust proxy, SPA fallback, failure state, ICU) ([78c471c](https://github.com/dachrisch/ai-job-search/commit/78c471cb86adb8a7dd0a5217942ddf595350defa))
+
 ## [0.11.22](https://github.com/dachrisch/ai-job-search/compare/v0.11.21...v0.11.22) (2026-10-07)
 
 
