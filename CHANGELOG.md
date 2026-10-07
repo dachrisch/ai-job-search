@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.24](https://github.com/dachrisch/ai-job-search/compare/v0.11.23...v0.11.24) (2026-10-07)
+
+
+### Bug Fixes
+
+* **api:** resolve 33 tsc errors and gate them in CI ([9d7828f](https://github.com/dachrisch/ai-job-search/commit/9d7828f32253d6fcd49f9896b46ea0b33e7df9f4))
+* PR-B for [#187](https://github.com/dachrisch/ai-job-search/issues/187) (33 tsc errors + CI typecheck gate) ([2725662](https://github.com/dachrisch/ai-job-search/commit/272566283a8a6555df9996f4fbb5f2c822318689))
+
 ## [0.11.23](https://github.com/dachrisch/ai-job-search/compare/v0.11.22...v0.11.23) (2026-10-07)
 
 
