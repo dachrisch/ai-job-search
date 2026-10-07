@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.22](https://github.com/dachrisch/ai-job-search/compare/v0.11.21...v0.11.22) (2026-10-07)
+
+
+### Bug Fixes
+
+* **api:** fail fast on hung opencode models and wait out opencode restarts ([0e18ea5](https://github.com/dachrisch/ai-job-search/commit/0e18ea5911f5e58a187d954c24527d5405fd2164))
+* **api:** fail fast on hung opencode models and wait out opencode restarts ([5b4d299](https://github.com/dachrisch/ai-job-search/commit/5b4d29992e05b163c12b8c946750a715fa9c4bd6))
+
 ## [0.11.21](https://github.com/dachrisch/ai-job-search/compare/v0.11.20...v0.11.21) (2026-10-06)
 
 
