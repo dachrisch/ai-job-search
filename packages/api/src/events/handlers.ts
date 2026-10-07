@@ -651,6 +651,28 @@ export const eventHandlers = {
       // Fetch jobs from database
       const jobs = await JobModel.find({ _id: { $in: data.jobIds } })
 
+      // Stream the stored jobs right away with unscored placeholders, so work
+      // already done stays visible even if scoring stalls (issue #187). The
+      // scores are attached later via results_ready_for_frontend, which the
+      // frontend upserts by id.
+      sseManager.broadcast(data.searchId, {
+        type: 'results_updated',
+        payload: {
+          jobs: jobs.map(job => ({
+            id: job._id.toString(),
+            title: job.title,
+            company: job.company,
+            description: job.description,
+            url: job.url,
+            salary: job.salary,
+            location: job.location,
+            matchScore: 0,
+            matchReasoning: ''
+          })),
+          totalScored: 0
+        }
+      })
+
       // Build prompt for Claude to score jobs
       const jobDetails = jobs
         .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nDescription: ${j.description}\nLocation: ${j.location}`)
@@ -1126,7 +1148,12 @@ ${jobDetails}`
       console.log(`\n🤖 AGENT LOG - Search Complete`)
       console.log(`   🏆 Search completed successfully`)
 
-      await emitPipelineEvent(data.searchId, 'search_complete', 'info', 'Search completed, generating final ranking', undefined, undefined, sseManager)
+      // Per-job scoring in jobs_extracted is the single rank source. A final
+      // LLM re-ranking used to run here; it doubled the LLM cost per search
+      // and, worse, hung the whole session in `running` when the model stalled
+      // (issue #187). Completion is now deterministic: mark complete and
+      // broadcast, always.
+      await emitPipelineEvent(data.searchId, 'search_complete', 'info', 'Search completed', undefined, undefined, sseManager)
 
       const session = await SearchSessionModel.findById(data.searchId)
       if (!session) {
@@ -1139,56 +1166,11 @@ ${jobDetails}`
         return
       }
 
-      // Get all jobs for this search
-      const jobs = await JobModel.find({ searchSessionId: data.searchId })
-
-      // Ask opencode to rank and score jobs. The jobs are already extracted and
-      // visible to the user, so a failure here must NOT leave the search stuck in
-      // "running" — we always mark the session complete below, with best-effort scoring.
-      let scores: Array<{ jobId: string; matchScore: number; reasoning: string }> = []
-      try {
-        const jobDetails = jobs
-          .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nLocation: ${j.location}`)
-          .join('\n')
-        const rankingPrompt = `Rank these jobs by how well they match "${session.query}".
-For each job, provide a matchScore (0-100) and a brief reasoning.
-
-Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "reasoning": "..." }] }
-
-Jobs to rank:
-${jobDetails}`
-
-        await emitPipelineEvent(data.searchId, 'final_ranking_prompt', 'prompt', 'Final LLM ranking prompt', rankingPrompt, { jobCount: jobs.length }, sseManager)
-        const parsed = await callLLMJson<{ scores: Array<{ jobId: string; matchScore: number; reasoning: string }> }>(rankingPrompt)
-        scores = parsed.scores || []
-
-        await emitPipelineEvent(data.searchId, 'final_ranking_response', 'response', `AI final ranking complete (${scores.length} jobs)`, JSON.stringify(scores), { scoredCount: scores.length }, sseManager)
-
-        // Apply the final ranking to each job's matchScore (B3).
-        for (const score of scores) {
-          const jobId = score.jobId
-          const currentJob = jobs.find(j => j._id.toString() === jobId)
-          if (!currentJob) continue
-          await JobModel.findByIdAndUpdate(jobId, {
-            matchScore: score.matchScore,
-            matchReasoning: score.reasoning,
-            scoredAt: new Date(),
-            scoredVersion: (currentJob.scoredVersion || 0) + 1
-          })
-        }
-
-        session.conversationHistory.push(
-          { role: 'user', content: rankingPrompt },
-          { role: 'assistant', content: JSON.stringify(scores) }
-        )
-      } catch (rankingError) {
-        console.error('Final ranking failed; completing search without scores:', rankingError)
-        await emitPipelineEvent(data.searchId, 'final_ranking_error', 'error', 'Final ranking failed; showing unscored results', String(rankingError), undefined, sseManager)
-      }
+      const totalJobs = await JobModel.countDocuments({ searchSessionId: data.searchId })
+      await emitPipelineEvent(data.searchId, 'search_complete', 'result', `Search complete: ${totalJobs} jobs, ${session.jobsScored} scored`, undefined, { totalJobs, jobsScored: session.jobsScored }, sseManager)
 
       session.status = 'complete'
       session.completedAt = new Date()
-      session.jobsScored = (session.jobsScored || 0) + scores.length
       await session.save()
 
       // Broadcast completion status

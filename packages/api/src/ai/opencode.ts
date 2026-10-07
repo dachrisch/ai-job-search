@@ -76,6 +76,33 @@ let lastGoodAtMs = 0
 let lastFailureAtMs = 0
 const exhaustedUntil = new Map<string, number>()
 
+// Process-wide cap on concurrent LLM calls (issue #187). Scoring, discovery
+// and ranking used to fire in parallel bursts that tripped the free-quota
+// rate limit within a single search, pushing everything onto the paid model.
+// Smoothing bursts keeps the free models usable.
+function maxConcurrentLLMCalls(): number {
+  const fromEnv = Number(process.env.OPENCODE_MAX_CONCURRENT)
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? Math.floor(fromEnv) : 2
+}
+
+let llmInFlight = 0
+const llmWaiters: Array<() => void> = []
+
+async function acquireLLMSlot(): Promise<void> {
+  if (llmInFlight < maxConcurrentLLMCalls()) {
+    llmInFlight++
+    return
+  }
+  await new Promise<void>(resolve => llmWaiters.push(resolve))
+  llmInFlight++
+}
+
+function releaseLLMSlot(): void {
+  llmInFlight--
+  const next = llmWaiters.shift()
+  if (next) next()
+}
+
 /** Clears discovery cache and quota cooldowns (tests only). */
 export function resetOpencodeStateForTests(): void {
   lastGoodModels = null
@@ -262,6 +289,15 @@ async function getModelChain(): Promise<OpenCodeModel[]> {
  */
 export async function callOpencode(prompt: string): Promise<string> {
   getApiKey() // fail fast before discovery when the key is missing
+  await acquireLLMSlot()
+  try {
+    return await callOpencodeInner(prompt)
+  } finally {
+    releaseLLMSlot()
+  }
+}
+
+async function callOpencodeInner(prompt: string): Promise<string> {
   const models = await getModelChain()
   const paidKey = modelKey(paidModel())
   let unavailableWaits = 0
