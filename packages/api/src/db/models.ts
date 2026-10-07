@@ -114,14 +114,18 @@ const searchSessionSchema = new Schema<SearchSession>(
   { timestamps: { createdAt: true, updatedAt: false } }
 )
 
-// Helper to get or create models, avoiding OverwriteModelError in tests
+// Helper to get or create models, avoiding OverwriteModelError in tests.
+//
+// The single `as Model<T>` cast is deliberate and contained here: letting
+// mongoose infer the document type from the schema definition
+// (InferSchemaType) silently degrades complex schemas (notably
+// SearchSession with its nested arrays/enums) into an unusable union type,
+// which surfaced as 30+ tsc errors in the routes. The schema definitions
+// below mirror the shared interfaces, so Model<T> is the honest type.
 function getModel<T>(name: string, schema: Schema): Model<T> {
-  try {
-    return mongoose.model(name)
-  } catch (error) {
-    // Model doesn't exist yet, create it
-    return mongoose.model<T>(name, schema)
-  }
+  const existing = mongoose.models[name] as Model<T> | undefined
+  if (existing) return existing
+  return mongoose.model(name, schema) as unknown as Model<T>
 }
 
 export const UserModel: Model<User> = getModel<User>('User', userSchema)
