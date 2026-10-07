@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { registerRateLimiter, loginRateLimiter } from '../rate-limit.js'
+import { createApp } from '../../index.js'
 
 function buildApp(limiter: ReturnType<typeof registerRateLimiter>) {
   const app = express()
@@ -32,5 +33,24 @@ describe('auth rate limiting (audit E3)', () => {
   it('limits login to 10 requests per minute', async () => {
     const app = buildApp(loginRateLimiter)
     expect(await hitUntilLimited(app, 10)).toBe(true)
+  })
+})
+
+describe('trust proxy (issue #187)', () => {
+  it('enables trust proxy so the limiter keys off the real client IP', () => {
+    const { app } = createApp()
+    expect(app.get('trust proxy')).toBe(1)
+  })
+
+  it('does not log ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on proxied requests', async () => {
+    const { app } = createApp()
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await request(app).get('/api/health').set('X-Forwarded-For', '1.2.3.4')
+      const logged = errSpy.mock.calls.flat().map(String).join('\n')
+      expect(logged).not.toContain('ERR_ERL_UNEXPECTED_X_FORWARDED_FOR')
+    } finally {
+      errSpy.mockRestore()
+    }
   })
 })

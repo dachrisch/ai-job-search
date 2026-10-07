@@ -123,7 +123,7 @@ describe('useSSE Hook', () => {
     })
   })
 
-  it('should reconnect on connection error', async () => {
+  it('should reconnect on connection error', { timeout: 10000 }, async () => {
     let eventListeners: { [key: string]: Function } = {}
     const EventSourceMock = vi.fn(function() {
       this.addEventListener = (event: string, listener: Function) => {
@@ -144,9 +144,9 @@ describe('useSSE Hook', () => {
 
     // Error should be set immediately
     expect(result.current.error).toBeTruthy()
-  }, { timeout: 10000 })
+  })
 
-  it('should set error message on connection failure', async () => {
+  it('should set error message on connection failure', { timeout: 10000 }, async () => {
     let eventListeners: { [key: string]: Function } = {}
     const EventSourceMock = vi.fn(function() {
       this.addEventListener = (event: string, listener: Function) => {
@@ -166,7 +166,7 @@ describe('useSSE Hook', () => {
     // Error should be set to indicate connection issue
     expect(result.current.error).toBeTruthy()
     expect(result.current.error).toMatch(/connection|reconnect/i)
-  }, { timeout: 10000 })
+  })
 
   it('should upsert jobs from a results_updated event', async () => {
     let eventListeners: { [key: string]: Function } = {}
@@ -243,5 +243,5 @@ describe('useSSE Hook', () => {
     })
 
     expect(closeJs).toHaveBeenCalled()
-  }, { timeout: 10000 })
+  })
 })

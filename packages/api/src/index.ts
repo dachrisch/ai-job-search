@@ -60,6 +60,12 @@ export function createApp(): { app: Express; sseManager: SSEManager } {
 
   app.use(express.json())
 
+  // Behind nginx (docker / servyy), the real client IP arrives via
+  // X-Forwarded-For. Without this, express-rate-limit logs
+  // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every request and keys limits
+  // off the proxy address instead of the client (issue #187).
+  app.set('trust proxy', 1)
+
   // Global per-IP rate limit (audit finding E3). Auth endpoints additionally
   // have their own tighter limits applied in their router.
   app.use(globalRateLimiter)

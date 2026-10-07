@@ -88,7 +88,9 @@ export function ResultsPage({ token }: ResultsPageProps) {
         onRetry={() => navigate('/')} />
 
       <div className="job-list">
-        <JobList jobs={sortedJobs} isLoading={isSearchRunning} />
+        {(sortedJobs.length > 0 || status !== 'failed') && (
+          <JobList jobs={sortedJobs} isLoading={isSearchRunning} />
+        )}
       </div>
     </div>
   )

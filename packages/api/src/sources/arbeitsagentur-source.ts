@@ -86,7 +86,11 @@ export class ArbeitsagenturSource implements JobSource {
     const parts = [`${p.stellenangebotsTitel} bei ${company} in ${location}.`]
     if (p.hauptberuf) parts.push(`Beruf: ${p.hauptberuf}.`)
     if (p.gehaltsspanneVon && p.gehaltsspanneBis) {
-      const fmt = (n: number) => Math.round(n).toLocaleString('de-DE')
+      // Explicit German thousands grouping. toLocaleString('de-DE') depends on
+      // the runtime's ICU data: node:alpine (production image) and other
+      // small-icu runtimes silently fall back to en-US ("58,000").
+      const fmt = (n: number) =>
+        Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
       parts.push(`Gehalt: ${fmt(p.gehaltsspanneVon)}–${fmt(p.gehaltsspanneBis)} EUR/Jahr.`)
     }
     if (p.homeofficemoeglich) parts.push('Homeoffice möglich.')
