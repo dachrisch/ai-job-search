@@ -4,7 +4,7 @@ import request from 'supertest'
 import { registerRateLimiter, loginRateLimiter } from '../rate-limit.js'
 import { createApp } from '../../index.js'
 
-function buildApp(limiter: ReturnType<typeof registerRateLimiter>) {
+function buildApp(limiter: express.RequestHandler) {
   const app = express()
   app.use(express.json())
   app.post('/target', limiter, (req, res) => res.status(200).json({ ok: true }))

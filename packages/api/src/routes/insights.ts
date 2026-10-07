@@ -16,10 +16,10 @@ router.get('/:searchId/insights', async (req: Request, res: Response, next: Next
       return res.status(404).json({ error: 'Search not found' })
     }
 
-    const session = await SearchSessionModel.findOne({
-      _id: new mongoose.Types.ObjectId(searchId),
-      userId
-    } as any)
+    // See searches.ts: the validated hex string is passed so Mongoose casts
+    // it (ObjectId instances are not assignable to FilterQuery's string
+    // _id under Mongoose 9). (issue #187)
+    const session = await SearchSessionModel.findOne({ _id: searchId, userId })
 
     if (!session) {
       return res.status(404).json({ error: 'Search not found' })

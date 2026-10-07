@@ -10,7 +10,7 @@ router.use(authMiddleware)
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId
+    const userId: string = (req as any).userId
     const sessions = await SearchSessionModel.find({ userId })
       .sort({ createdAt: -1 })
       .select('query status jobsScored jobsExtracted companiesDiscovered companiesCrawled failureReason createdAt completedAt startedAt')
@@ -35,7 +35,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId
+    const userId: string = (req as any).userId
     const { query } = req.body
 
     if (!query) {
@@ -86,18 +86,24 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/:searchId', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId
+    const userId: string = (req as any).userId
     const { searchId } = req.params
+
+    // Express 5 types params as string | string[]; a repeated ?searchId=
+    // can never be a valid ObjectId, so reject it as unknown (issue #187).
+    if (typeof searchId !== 'string') {
+      return res.status(404).json({ error: 'Search not found' })
+    }
 
     // Validate searchId is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(searchId)) {
       return res.status(404).json({ error: 'Search not found' })
     }
 
-    const session = await SearchSessionModel.findOne({
-      _id: new mongoose.Types.ObjectId(searchId),
-      userId
-    })
+    // The shared interfaces type _id as string; passing the validated hex
+    // string lets Mongoose cast it (an ObjectId instance is not assignable
+    // to FilterQuery's string _id under Mongoose 9). (issue #187)
+    const session = await SearchSessionModel.findOne({ _id: searchId, userId })
 
     if (!session) {
       return res.status(404).json({ error: 'Search not found' })
@@ -119,20 +125,24 @@ router.get('/:searchId', async (req: Request, res: Response, next: NextFunction)
 
 router.get('/:searchId/jobs', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId
+    const userId: string = (req as any).userId
     const { searchId } = req.params
     const page = Math.max(1, parseInt(req.query.page as string) || 1)
     const pageSize = Math.max(1, parseInt(req.query.pageSize as string) || 10)
+
+    if (typeof searchId !== 'string') {
+      return res.status(404).json({ error: 'Search not found' })
+    }
 
     // Validate searchId is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(searchId)) {
       return res.status(404).json({ error: 'Search not found' })
     }
 
-    const session = await SearchSessionModel.findOne({
-      _id: new mongoose.Types.ObjectId(searchId),
-      userId
-    })
+    // The shared interfaces type _id as string; passing the validated hex
+    // string lets Mongoose cast it (an ObjectId instance is not assignable
+    // to FilterQuery's string _id under Mongoose 9). (issue #187)
+    const session = await SearchSessionModel.findOne({ _id: searchId, userId })
 
     if (!session) {
       return res.status(404).json({ error: 'Search not found' })
@@ -170,18 +180,22 @@ router.get('/:searchId/jobs', async (req: Request, res: Response, next: NextFunc
 
 router.get('/:searchId/status', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId
+    const userId: string = (req as any).userId
     const { searchId } = req.params
+
+    if (typeof searchId !== 'string') {
+      return res.status(404).json({ error: 'Search not found' })
+    }
 
     // Validate searchId is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(searchId)) {
       return res.status(404).json({ error: 'Search not found' })
     }
 
-    const session = await SearchSessionModel.findOne({
-      _id: new mongoose.Types.ObjectId(searchId),
-      userId
-    })
+    // The shared interfaces type _id as string; passing the validated hex
+    // string lets Mongoose cast it (an ObjectId instance is not assignable
+    // to FilterQuery's string _id under Mongoose 9). (issue #187)
+    const session = await SearchSessionModel.findOne({ _id: searchId, userId })
 
     if (!session) {
       return res.status(404).json({ error: 'Search not found' })

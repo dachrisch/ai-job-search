@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'vitest'
 import { JobSourceManager } from '../manager'
 import { RateLimiter } from '../rate-limiter'
 
@@ -102,7 +103,7 @@ describe('Job Discovery E2E - JobSourceManager Integration', () => {
     })
 
     it('should handle empty domains array gracefully', async () => {
-      const domains = []
+      const domains: string[] = []
       const keywords = 'software engineer'
 
       const results = await manager.scrapeJobs(domains, keywords)

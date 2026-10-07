@@ -84,6 +84,13 @@ jobs:
         run: npm run build
         working-directory: packages/shared
 
+      - name: Typecheck API (src + tests)
+        # The build tsconfig excludes tests, which is how 33 src type errors
+        # went unnoticed on master (issue #187). tsconfig.typecheck.json
+        # covers both, so neither can regress again.
+        run: npx tsc -p tsconfig.typecheck.json
+        working-directory: packages/api
+
       - name: Build Frontend
         run: npm run build
         working-directory: packages/frontend

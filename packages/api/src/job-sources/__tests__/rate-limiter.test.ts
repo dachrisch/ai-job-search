@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest'
 import {RateLimiter} from '../rate-limiter'
 
 describe('RateLimiter', () => {

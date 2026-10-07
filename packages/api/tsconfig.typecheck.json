@@ -1,0 +1,11 @@
+{
+  // Typecheck-only config (issue #187): covers src AND tests. The build
+  // tsconfig excludes tests, which is how 33 src errors went unnoticed —
+  // this config is what CI runs so neither can regress again.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

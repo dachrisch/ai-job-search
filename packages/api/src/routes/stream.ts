@@ -13,6 +13,11 @@ export async function handleStreamConnect(
     const userId = (req as any).userId
     const { searchId } = req.params
 
+    // Express 5 types params as string | string[] (issue #187).
+    if (typeof searchId !== 'string') {
+      return res.status(404).json({ error: 'Search not found' })
+    }
+
     // Verify search exists and user owns it
     const session = await SearchSessionModel.findById(searchId)
     if (!session) {

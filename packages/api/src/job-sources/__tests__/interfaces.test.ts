@@ -6,11 +6,13 @@ describe('JobSource Interface', () => {
     const mockSource: JobSource = {
       name: 'TestSource',
       canHandle: vi.fn().mockReturnValue(true),
+      scrapeBulk: vi.fn().mockResolvedValue([]),
       scrape: vi.fn().mockResolvedValue({ jobs: [], errors: [] })
     }
 
     expect(mockSource.name).toBeDefined()
     expect(typeof mockSource.canHandle).toBe('function')
+    expect(typeof mockSource.scrapeBulk).toBe('function')
     expect(typeof mockSource.scrape).toBe('function')
   })
 
