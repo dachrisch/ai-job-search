@@ -1111,35 +1111,17 @@ describe('Event Handlers', () => {
   })
 
   describe('search_complete handler', () => {
-    it('applies the parsed final ranking to job match scores', async () => {
-      const mockJobs = [
-        {
-          _id: { toString: () => 'job-1' },
-          title: 'Senior Engineer',
-          company: 'Google',
-          location: 'Berlin',
-          scoredVersion: 0,
-        },
-      ]
-
+    it('completes without any LLM ranking call; per-job scores are untouched', async () => {
       vi.mocked(SearchSessionModel.findById).mockResolvedValue(mockSession)
-      vi.mocked(JobModel.find).mockResolvedValue(mockJobs as any)
-      vi.mocked(callLLMJson).mockResolvedValue({
-        scores: [{ jobId: 'job-1', matchScore: 91, reasoning: 'Excellent fit' }],
-      })
-      vi.mocked(JobModel.findByIdAndUpdate).mockResolvedValue({} as any)
+      vi.mocked(JobModel.find).mockResolvedValue([] as any)
+      vi.mocked(JobModel.countDocuments).mockResolvedValue(7 as any)
 
       await eventHandlers.search_complete({ searchId: 'session-123' }, sseManager)
 
-      // B3: the final ranking must update matchScore, not just be logged.
-      expect(JobModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        'job-1',
-        expect.objectContaining({
-          matchScore: 91,
-          matchReasoning: 'Excellent fit',
-          scoredVersion: 1,
-        })
-      )
+      // No final LLM ranking (removed in issue #187): the LLM is never
+      // consulted and no job is rewritten here.
+      expect(callLLMJson).not.toHaveBeenCalled()
+      expect(JobModel.findByIdAndUpdate).not.toHaveBeenCalled()
       expect(mockSession.status).toBe('complete')
       expect(mockSession.completedAt).toBeInstanceOf(Date)
     })
