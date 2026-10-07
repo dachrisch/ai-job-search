@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.25](https://github.com/dachrisch/ai-job-search/compare/v0.11.24...v0.11.25) (2026-10-07)
+
+
+### Bug Fixes
+
+* **api:** pipeline correctness for [#187](https://github.com/dachrisch/ai-job-search/issues/187) - complete, stream, serialize ([c87062f](https://github.com/dachrisch/ai-job-search/commit/c87062f345913c54ce81bf1adfd9b8162883c203))
+* PR-C for [#187](https://github.com/dachrisch/ai-job-search/issues/187) (pipeline - deterministic completion, stream unscored, LLM gate) ([a7b767f](https://github.com/dachrisch/ai-job-search/commit/a7b767f6e39115455f0945f9870367e84a533538))
+
 ## [0.11.24](https://github.com/dachrisch/ai-job-search/compare/v0.11.23...v0.11.24) (2026-10-07)
 
 
