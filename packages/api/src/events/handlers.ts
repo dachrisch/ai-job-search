@@ -11,6 +11,7 @@ import { validateAndExtractCompanies } from '../utils/company-discovery.js'
 import { calculateKeywordMatch, passesKeywordThreshold, KeywordMatchResult } from '../utils/job-matcher.js'
 import { SearchSourceManager } from '../search-sources/searxng-source.js'
 import { SourceManager } from '../sources/manager.js'
+import { filterValidJobs } from '../sources/validity-filter.js'
 import { ArbeitsagenturSource } from '../sources/arbeitsagentur-source.js'
 import { parseJobQuery } from '../sources/query-parser.js'
 import { emitPipelineEvent } from '../utils/pipeline.js'
@@ -75,9 +76,25 @@ export const eventHandlers = {
         await emitPipelineEvent(data.searchId, 'tier1_error', 'error', 'Job source failed', sourceError.message, undefined, sseManager)
       }
 
+      // Validity gate (issue #187): drop stale postings, title+company
+      // reposts and blocklisted training providers before anything is stored.
+      const { valid, rejected, flagged } = filterValidJobs(sourceResult.jobs)
+      if (rejected.length > 0) {
+        const byReason = rejected.reduce<Record<string, number>>((acc, r) => {
+          acc[r.reason] = (acc[r.reason] || 0) + 1
+          return acc
+        }, {})
+        session.jobsFilteredOut = (session.jobsFilteredOut || 0) + rejected.length
+        await session.save()
+        await emitPipelineEvent(data.searchId, 'tier1_filtered', 'result', `Arbeitsagentur: ${rejected.length} invalid jobs dropped`, undefined, { filteredOut: rejected.length, byReason }, sseManager)
+      }
+      if (flagged.length > 0) {
+        await emitPipelineEvent(data.searchId, 'tier1_flagged', 'info', `${flagged.length} agency suspects kept for review`, flagged.map(j => `${j.title} @ ${j.company}`).join('; '), { count: flagged.length }, sseManager)
+      }
+
       let apiJobsStored = 0
       const storedApiJobIds: string[] = []
-      for (const job of sourceResult.jobs) {
+      for (const job of valid) {
         const exists = await JobModel.findOne({ searchSessionId: data.searchId, url: job.url })
         if (exists) continue
         const saved = await JobModel.create({

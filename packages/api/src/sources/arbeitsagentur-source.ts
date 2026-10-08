@@ -1,6 +1,7 @@
 // packages/api/src/sources/arbeitsagentur-source.ts
 import axios from 'axios'
 import { JobQuery, JobSource, SourceJob, SourceResult } from './types.js'
+import { expandTitleVariants } from './query-parser.js'
 
 // v4 started answering 403 for every request (observed 2026-10-06); v6 serves the
 // same public key but renamed the payload fields (stellenangebote → ergebnisliste, …).
@@ -11,6 +12,11 @@ const BOARD_URL = 'https://www.arbeitsagentur.de/jobsuche/'
 const PAGE_SIZE = 50
 const MAX_PAGES = 2
 const TIMEOUT_MS = 5000
+// Bound the fan-out: at most 3 variants in flight, 400 jobs stored
+// (issue #187). JS is single-threaded, so the shared `seen` set needs no
+// locking — each variant's dedupe loop runs to completion synchronously.
+const VARIANT_CONCURRENCY = 3
+const MAX_JOBS_TOTAL = 400
 
 interface Posting {
   referenznummer?: string
@@ -29,22 +35,46 @@ export class ArbeitsagenturSource implements JobSource {
   tier = 1 as const
 
   async search(query: JobQuery): Promise<SourceResult> {
+    const variants = expandTitleVariants(query.keywords)
     const seen = new Set<string>()
     const jobs: SourceJob[] = []
+    const errors: SourceResult['errors'] = []
 
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const postings = await this.fetchPage(query, page)
-      for (const posting of postings) {
-        const job = this.toSourceJob(posting)
-        if (!job || seen.has(posting.referenznummer!)) continue
-        seen.add(posting.referenznummer!)
-        jobs.push(job)
+    // One variant failing must not kill the others: failures are returned,
+    // not thrown (the SourceResult contract).
+    const searchVariant = async (keywords: string): Promise<void> => {
+      try {
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const postings = await this.fetchPage({ ...query, keywords }, page)
+          for (const posting of postings) {
+            if (jobs.length >= MAX_JOBS_TOTAL) return
+            const job = this.toSourceJob(posting)
+            if (!job || seen.has(posting.referenznummer!)) continue
+            seen.add(posting.referenznummer!)
+            jobs.push(job)
+          }
+          // A short page means there is nothing further to fetch.
+          if (postings.length < PAGE_SIZE) break
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        errors.push({ message: `${keywords}: ${message}` })
       }
-      // A short page means there is nothing further to fetch.
-      if (postings.length < PAGE_SIZE) break
     }
 
-    return { source: this.name, jobs, errors: [] }
+    const queue = [...variants]
+    const workers = Array.from(
+      { length: Math.min(VARIANT_CONCURRENCY, queue.length) },
+      async () => {
+        while (queue.length > 0) {
+          const variant = queue.shift()!
+          await searchVariant(variant)
+        }
+      }
+    )
+    await Promise.all(workers)
+
+    return { source: this.name, jobs, errors }
   }
 
   private async fetchPage(query: JobQuery, page: number): Promise<Posting[]> {
@@ -79,6 +109,8 @@ export class ArbeitsagenturSource implements JobSource {
       url,
       location,
       sourceUrl: BOARD_URL,
+      // Carried through for the validity filter (stale-posting cutoff).
+      publishedAt: p.datumErsteVeroeffentlichung,
     }
   }
 

@@ -59,6 +59,37 @@ function withLocation(keywords: string, place: string): ParsedJobQuery {
   return { keywords: keywords.trim(), location: normalizePlace(place.trim()), radius: DEFAULT_RADIUS_KM }
 }
 
+// Role families → title variants queried against query-native sources
+// (issue #187). A single keyword returns mostly unrelated roles (about 30
+// of 52 for "Product Manager"); fanning out across DE+EN titles is the
+// biggest quantity lever. LLM-free like the rest of this module.
+const TITLE_VARIANTS: Array<{ match: RegExp; variants: string[] }> = [
+  {
+    match: /produktmanager|product\s?manager|product\s?owner/i,
+    variants: [
+      'Produktmanager',
+      'Product Manager',
+      'Product Owner',
+      'Senior Product Manager',
+      'Technical Product Manager',
+    ],
+  },
+]
+
+// How many variants to query per search. Ship 5; raise toward 8 once the
+// valid-rate is measured (issue #187). Overridable without a redeploy.
+function maxTitleVariants(): number {
+  const fromEnv = Number(process.env.TITLE_VARIANTS_MAX)
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return Math.min(Math.floor(fromEnv), 8)
+  return 5
+}
+
+export function expandTitleVariants(keywords: string): string[] {
+  const family = TITLE_VARIANTS.find(f => f.match.test(keywords))
+  if (!family) return [keywords]
+  return family.variants.slice(0, maxTitleVariants())
+}
+
 export function parseJobQuery(raw: string): ParsedJobQuery {
   const query = raw.trim().replace(/\s+/g, ' ')
 

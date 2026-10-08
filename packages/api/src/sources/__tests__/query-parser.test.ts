@@ -1,6 +1,6 @@
 // packages/api/src/sources/__tests__/query-parser.test.ts
 import { describe, it, expect } from 'vitest'
-import { parseJobQuery } from '../query-parser'
+import { parseJobQuery, expandTitleVariants } from '../query-parser'
 
 describe('parseJobQuery', () => {
   it('splits "<role> in <place>" and normalizes the English city name', () => {
@@ -57,5 +57,30 @@ describe('parseJobQuery', () => {
       location: 'München',
       radius: 25,
     })
+  })
+})
+
+describe('expandTitleVariants', () => {
+  it('expands a Product Manager query into DE+EN title variants (issue #187)', () => {
+    expect(expandTitleVariants('Product Manager')).toEqual([
+      'Produktmanager',
+      'Product Manager',
+      'Product Owner',
+      'Senior Product Manager',
+      'Technical Product Manager',
+    ])
+  })
+
+  it('matches case-insensitively, including the German spelling', () => {
+    expect(expandTitleVariants('produktmanager')).toEqual(expandTitleVariants('Product Manager'))
+    expect(expandTitleVariants('Senior Product Manager')).toEqual(expandTitleVariants('Product Manager'))
+  })
+
+  it('expands Product Owner queries into the same family', () => {
+    expect(expandTitleVariants('Product Owner')).toEqual(expandTitleVariants('Product Manager'))
+  })
+
+  it('returns the keywords unchanged for unknown roles', () => {
+    expect(expandTitleVariants('Senior Backend Engineer')).toEqual(['Senior Backend Engineer'])
   })
 })
