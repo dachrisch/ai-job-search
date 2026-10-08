@@ -5,6 +5,9 @@ import { useApi } from '../hooks/useApi'
 import { StatusLine } from '../components/StatusLine'
 import { JobList } from '../components/JobList'
 
+// Scores below this are collapsed behind a toggle (issue #187).
+const LOW_SCORE_THRESHOLD = 50
+
 interface ResultsPageProps {
   token: string
 }
@@ -19,6 +22,7 @@ export function ResultsPage({ token }: ResultsPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [hydratedStatus, setHydratedStatus] = useState<string>('')
   const [hydrating, setHydrating] = useState(true)
+  const [showLowScores, setShowLowScores] = useState(false)
 
   // Hydrate from API on mount — gets results even if SSE hasn't connected yet
   useEffect(() => {
@@ -52,6 +56,12 @@ export function ResultsPage({ token }: ResultsPageProps) {
     : sseStatus) as 'running' | 'complete' | 'failed'
   const isSearchRunning = status === 'running'
   const sortedJobs = [...jobs].sort((a: any, b: any) => (b.matchScore || 0) - (a.matchScore || 0))
+  // Collapse low-score results behind a toggle (issue #187). Unscored jobs
+  // (matchScore 0, still awaiting the scorer) always stay visible.
+  const lowScoreJobs = sortedJobs.filter((j: any) => (j.matchScore || 0) > 0 && j.matchScore < LOW_SCORE_THRESHOLD)
+  const shownJobs = showLowScores
+    ? sortedJobs
+    : sortedJobs.filter((j: any) => (j.matchScore || 0) === 0 || j.matchScore >= LOW_SCORE_THRESHOLD)
 
   return (
     <div className="container-wide">
@@ -88,8 +98,16 @@ export function ResultsPage({ token }: ResultsPageProps) {
         onRetry={() => navigate('/')} />
 
       <div className="job-list">
-        {(sortedJobs.length > 0 || status !== 'failed') && (
-          <JobList jobs={sortedJobs} isLoading={isSearchRunning} />
+        {(shownJobs.length > 0 || status !== 'failed') && (
+          <JobList jobs={shownJobs} isLoading={isSearchRunning} />
+        )}
+        {lowScoreJobs.length > 0 && (
+          <button className="btn btn-ghost" style={{ marginTop: 8 }}
+            onClick={() => setShowLowScores(v => !v)}>
+            {showLowScores
+              ? `Hide ${lowScoreJobs.length} lower matches`
+              : `Show ${lowScoreJobs.length} lower matches (below ${LOW_SCORE_THRESHOLD})`}
+          </button>
         )}
       </div>
     </div>

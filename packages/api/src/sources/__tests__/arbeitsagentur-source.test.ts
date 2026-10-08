@@ -37,7 +37,6 @@ describe('ArbeitsagenturSource', () => {
     // Called the v6 jobs endpoint with the keyword, page size 50 and the public API key header
     const [calledUrl, calledConfig] = vi.mocked(axios.get).mock.calls[0] as [string, any]
     expect(calledUrl).toContain('/jobsuche-service/pc/v6/jobs')
-    expect(calledConfig?.params?.was).toBe('product manager')
     expect(calledConfig?.params?.size).toBe(50)
     expect(calledConfig?.params?.page).toBe(1)
     expect(calledConfig?.headers?.['X-API-Key']).toBe('jobboerse-jobsuche')
@@ -45,7 +44,6 @@ describe('ArbeitsagenturSource', () => {
     // Mapped two jobs correctly
     expect(result.source).toBe('arbeitsagentur')
     expect(result.errors).toEqual([])
-    expect(result.jobs).toHaveLength(2)
 
     const first = result.jobs[0]
     expect(first.title).toBe('Product Manager (m/w/d)')
@@ -53,6 +51,37 @@ describe('ArbeitsagenturSource', () => {
     expect(first.location).toBe('München')
     expect(first.sourceUrl).toBe('https://www.arbeitsagentur.de/jobsuche/')
     expect(first.url).toBe('https://www.arbeitsagentur.de/jobsuche/jobdetail/10001-1003266561-S')
+  })
+
+  it('fans out across title variants and merges unique jobs (issue #187)', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: twoJobsResponse } as any)
+
+    const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
+
+    // One query per variant; the same two postings come back each time.
+    const keywords = vi.mocked(axios.get).mock.calls.map(([, config]: any) => config?.params?.was)
+    expect(keywords).toEqual([
+      'Produktmanager',
+      'Product Manager',
+      'Product Owner',
+      'Senior Product Manager',
+      'Technical Product Manager',
+    ])
+    expect(result.jobs).toHaveLength(2)
+    expect(result.errors).toEqual([])
+  })
+
+  it('keeps other variants jobs when one variant fails', async () => {
+    vi.mocked(axios.get).mockImplementation(async (url: any, config: any) => {
+      if (config?.params?.was === 'Product Owner') throw new Error('upstream 503')
+      return { data: twoJobsResponse } as any
+    })
+
+    const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
+
+    expect(result.jobs).toHaveLength(2)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].message).toContain('Product Owner')
   })
 
   it('builds the description from the structured v6 fields', async () => {
@@ -69,15 +98,21 @@ describe('ArbeitsagenturSource', () => {
   })
 
   it('fetches a second page only when the first page is full', async () => {
-    vi.mocked(axios.get)
-      .mockResolvedValueOnce({ data: pageResponse('p1', 50) } as any)
-      .mockResolvedValueOnce({ data: pageResponse('p2', 20) } as any)
+    vi.mocked(axios.get).mockImplementation(async (url: any, config: any) => {
+      const { was, page } = config?.params ?? {}
+      if (was === 'Produktmanager' && page === 1) return { data: pageResponse('p1', 50) } as any
+      if (was === 'Produktmanager' && page === 2) return { data: pageResponse('p2', 20) } as any
+      return { data: emptyResponse } as any
+    })
 
     const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
 
-    expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(2)
-    const [, secondConfig] = vi.mocked(axios.get).mock.calls[1] as [string, any]
-    expect(secondConfig?.params?.page).toBe(2)
+    // Variant 1 paged (2 calls), the other four stopped after one short page.
+    expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(6)
+    const pages = vi.mocked(axios.get).mock.calls
+      .filter(([, config]: any) => config?.params?.was === 'Produktmanager')
+      .map(([, config]: any) => config?.params?.page)
+    expect(pages).toEqual([1, 2])
     expect(result.jobs).toHaveLength(70)
   })
 
@@ -86,15 +121,19 @@ describe('ArbeitsagenturSource', () => {
 
     await source.search({ keywords: 'product manager', raw: 'product manager' })
 
-    expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(1)
+    // One short page per title variant, no second pages.
+    expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5)
   })
 
   it('dedupes postings that appear on both pages', async () => {
     const page1 = pageResponse('p1', 50)
     const page2 = { ...pageResponse('p2', 10), ergebnisliste: [...pageResponse('p2', 10).ergebnisliste, page1.ergebnisliste[0]] }
-    vi.mocked(axios.get)
-      .mockResolvedValueOnce({ data: page1 } as any)
-      .mockResolvedValueOnce({ data: page2 } as any)
+    vi.mocked(axios.get).mockImplementation(async (url: any, config: any) => {
+      const { was, page } = config?.params ?? {}
+      if (was === 'Produktmanager' && page === 1) return { data: page1 } as any
+      if (was === 'Produktmanager' && page === 2) return { data: page2 } as any
+      return { data: emptyResponse } as any
+    })
 
     const result = await source.search({ keywords: 'product manager', raw: 'product manager' })
 

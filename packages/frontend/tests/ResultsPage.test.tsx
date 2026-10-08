@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ResultsPage } from '../src/pages/ResultsPage'
 
@@ -71,5 +71,33 @@ describe('ResultsPage', () => {
     renderAt()
     expect(await screen.findByText(/Search failed/i)).toBeInTheDocument()
     expect(await screen.findByText('Product Manager')).toBeInTheDocument()
+  })
+
+  it('collapses jobs scored below 50 behind a toggle (issue #187)', async () => {
+    const jobs = [
+      { id: '1', title: 'Top PM Job', company: 'Acme', description: 'd', url: 'http://x/1', location: 'Munich', matchScore: 80, matchReasoning: 'fit' },
+      { id: '2', title: 'Mediocre Job', company: 'Acme', description: 'd', url: 'http://x/2', location: 'Munich', matchScore: 40, matchReasoning: 'meh' },
+      { id: '3', title: 'Poor Job', company: 'Acme', description: 'd', url: 'http://x/3', location: 'Munich', matchScore: 10, matchReasoning: 'no' },
+    ]
+    sseState.jobs = jobs
+    apiState.jobs = { jobs }
+    renderAt()
+    expect(await screen.findByText('Top PM Job')).toBeInTheDocument()
+    expect(screen.queryByText('Mediocre Job')).not.toBeInTheDocument()
+    expect(screen.queryByText('Poor Job')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /lower matches/i }))
+    expect(await screen.findByText('Mediocre Job')).toBeInTheDocument()
+    expect(screen.getByText('Poor Job')).toBeInTheDocument()
+  })
+
+  it('always shows unscored jobs even below the threshold', async () => {
+    const jobs = [
+      { id: '1', title: 'Fresh Unscored Job', company: 'Acme', description: 'd', url: 'http://x/1', location: 'Munich', matchScore: 0, matchReasoning: '' },
+    ]
+    sseState.jobs = jobs
+    apiState.jobs = { jobs }
+    renderAt()
+    expect(await screen.findByText('Fresh Unscored Job')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /lower matches/i })).not.toBeInTheDocument()
   })
 })
