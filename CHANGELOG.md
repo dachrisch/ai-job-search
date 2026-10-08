@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.0](https://github.com/dachrisch/ai-job-search/compare/v0.11.25...v0.12.0) (2026-10-08)
+
+
+### Features
+
+* PR-D for [#187](https://github.com/dachrisch/ai-job-search/issues/187) - quantity and quality toward 100 valid jobs ([b3b644c](https://github.com/dachrisch/ai-job-search/commit/b3b644ccaaa6062b2a45092439b1a967a442c746))
+* PR-D for [#187](https://github.com/dachrisch/ai-job-search/issues/187) (title variants, validity filters, low-score collapse) ([acf9d39](https://github.com/dachrisch/ai-job-search/commit/acf9d3989191258a5918ca99dcaa5c4690cdb4b5))
+
+
+### Bug Fixes
+
+* **deps:** update dependency pydantic to v2.14.0 ([#196](https://github.com/dachrisch/ai-job-search/issues/196)) ([6e7ee44](https://github.com/dachrisch/ai-job-search/commit/6e7ee44fdc6f5cc8a3bb87fbfbff7a748de68371))
+
 ## [0.11.25](https://github.com/dachrisch/ai-job-search/compare/v0.11.24...v0.11.25) (2026-10-07)
 
 
