@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.3](https://github.com/dachrisch/ai-job-search/compare/v0.12.2...v0.12.3) (2026-10-21)
+
+
+### Bug Fixes
+
+* **opencode:** migrate client to OpenCode V2 API ([06c8a52](https://github.com/dachrisch/ai-job-search/commit/06c8a522e0e76ddffa4b8126b561b3d57ed341c2))
+* **opencode:** migrate client to OpenCode V2 API ([a529a13](https://github.com/dachrisch/ai-job-search/commit/a529a135a01b67d38c5de8712b02e2870f3d0e80)), closes [#202](https://github.com/dachrisch/ai-job-search/issues/202)
+
 ## [0.12.2](https://github.com/dachrisch/ai-job-search/compare/v0.12.1...v0.12.2) (2026-10-21)
 
 
