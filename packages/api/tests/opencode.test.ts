@@ -51,7 +51,7 @@ const REGISTRY = [
 ]
 
 const reply = (text: string) =>
-  jsonResponse(true, { data: [{ type: 'assistant', finish: 'done', content: [{ type: 'text', text }] }] })
+  jsonResponse(true, { data: [{ type: 'assistant', finish: 'stop', content: [{ type: 'text', text }] }] })
 const pending = () => jsonResponse(true, { data: [{ type: 'assistant' }] })
 const edge = (status: number, text: string) => ({ ok: false, status, json: async () => { throw new Error('not json') }, text: async () => text })
 const replyError = (message: string) =>
@@ -81,7 +81,9 @@ function mockOpencode(opts: {
       return jsonResponse(true, { data: { id } })
     }
     if (u.endsWith('/prompt')) return jsonResponse(true, { data: {} })
-    const match = u.match(/\/api\/session\/(ses_\d+)\/message$/)
+    if (u.endsWith('/interrupt')) return jsonResponse(true, { interrupted: true })
+    if (init?.method === 'DELETE' && /\/api\/session\/ses_\d+$/.test(u)) return jsonResponse(true, { data: {} })
+    const match = u.match(/\/api\/session\/(ses_\d+)\/message(\?.*)?$/)
     if (match) return (opts.perModel ?? (() => reply('ok')))(sessionModel.get(match[1])!)
     throw new Error(`unexpected fetch ${u}`)
   })
@@ -108,7 +110,10 @@ describe('callOpencode', () => {
     expect(result).toBe('{"ok":true}')
     expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session`, expect.objectContaining({ method: 'POST' }))
     expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session/ses_1/prompt`, expect.objectContaining({ method: 'POST' }))
-    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/session/ses_1/message`, expect.objectContaining({}))
+    expect(fetch).toHaveBeenCalledWith(
+      `${BASE}/api/session/ses_1/message?limit=50&order=desc`,
+      expect.objectContaining({})
+    )
   })
 
   it('should send the X-Api-Key header on discovery and session calls', async () => {

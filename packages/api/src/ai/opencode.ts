@@ -1,10 +1,17 @@
 // Thin HTTP client for the shared opencode instance (code.lehel.xyz).
-// Same contract the dontforget project uses, verified live against the API:
-//   POST /api/session            -> {"data": {"id": "ses_...", ...}}
-//   POST /api/session/:id/prompt -> {"data": {...}} (an ack, not the reply)
-//   GET  /api/session/:id/message -> {"data": [<newest message first>, ...]}
-// The reply has to be polled for: keep GETting .../message until the newest
-// entry is an assistant message with `finish` set (or `finish: "error"`).
+// OpenCode V2 contract, verified live against opencode 2.1.2:
+//   POST   /api/session                          -> {"data": {"id": "ses_...", ...}}
+//   POST   /api/session/:id/prompt  {text}       -> an ack, not the reply
+//   GET    /api/session/:id/message?limit=&order -> {"data": [<newest first>, ...],
+//                                                   "cursor": {"previous","next"}}
+//   POST   /api/session/:id/interrupt            -> {"interrupted": bool}
+//   DELETE /api/session/:id                      -> drops the session
+// (`/api/session/:id/abort` does not exist in V2 — it answers 404.)
+// The reply has to be polled for. V2 appends non-assistant turn entries after
+// the assistant message (`idle` with `outcome: succeeded|failed|interrupted`,
+// `system`, `synthetic`, `user`), so data[0] is not the reply: keep GETting
+// .../message until the newest *assistant* entry has a terminal `finish`
+// (anything but `tool-calls`; `finish: "error"`), skipping those other entries.
 
 const DEFAULT_POLL_INTERVAL_MS = 1000
 // How long one model gets to answer before it counts as hung. A hung model is
@@ -54,7 +61,11 @@ export class OpencodeUnavailableError extends Error {}
 class OpencodeTimeoutError extends Error {}
 
 interface OpencodeMessage {
-  type: 'user' | 'assistant'
+  // V2 adds non-assistant turn entries (`idle`, `system`, `synthetic`) after
+  // the assistant message, so only `type: 'assistant'` is the reply.
+  type: 'user' | 'assistant' | 'idle' | 'system' | 'synthetic'
+  // V2 enum: stop | length | tool-calls | content-filter | error | unknown.
+  // A missing `finish` means the assistant entry is still being written.
   finish?: string
   content?: Array<{ type: string; text?: string }>
   error?: { message: string }
@@ -65,7 +76,7 @@ export interface OpenCodeModel {
   providerID: string
 }
 
-interface RegistryModel extends OpenCodeModel {
+export interface RegistryModel extends OpenCodeModel {
   status?: string
   enabled?: boolean
   cost?: Array<{ input?: number; output?: number }>
@@ -166,11 +177,13 @@ function parseModelKey(value: string): OpenCodeModel | null {
   return providerID && id ? { providerID, id } : null
 }
 
-function isUsable(model: RegistryModel): boolean {
+/** Exported for the model-discovery test: a registry entry is servable unless deprecated/disabled. */
+export function isUsable(model: RegistryModel): boolean {
   return (model.status === undefined || model.status === 'active') && model.enabled !== false
 }
 
-function isFree(model: RegistryModel): boolean {
+/** Exported for the model-discovery test: cost-0 entries are the free tier. */
+export function isFree(model: RegistryModel): boolean {
   return Array.isArray(model.cost) && model.cost.length > 0 && model.cost.every(c => !c.input && !c.output)
 }
 
@@ -307,8 +320,9 @@ async function callOpencodeInner(prompt: string): Promise<string> {
     if (key === paidKey) console.warn(`[opencode] free models exhausted — falling back to paid ${key}`)
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const startedAt = Date.now()
+      let sessionId: string | undefined
       try {
-        const sessionId = await createSession(model)
+        sessionId = await createSession(model)
         await sendPrompt(sessionId, prompt)
         const reply = await pollForReply(sessionId)
         console.log(`[opencode] answered by ${key} in ${Math.round((Date.now() - startedAt) / 1000)}s`)
@@ -318,6 +332,11 @@ async function callOpencodeInner(prompt: string): Promise<string> {
         const message = err instanceof Error ? err.message : String(err)
         const tookS = Math.round((Date.now() - startedAt) / 1000)
         console.warn(`[opencode] ${key} attempt ${attempt} failed after ${tookS}s: ${message}`)
+
+        // Best effort: an abandoned session (timeout, model error) keeps
+        // generating server-side otherwise, and a hung run would keep burning
+        // the shared instance while this model sits out its cooldown.
+        if (sessionId) await abandonSession(sessionId)
 
         if (err instanceof OpencodeUnavailableError) {
           // opencode itself is down, so every model would fail the same way:
@@ -367,11 +386,40 @@ async function sendPrompt(sessionId: string, text: string): Promise<void> {
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Api-Key': getApiKey() },
-      body: JSON.stringify({ prompt: { text } }),
+      body: JSON.stringify({ text }),
     },
     'prompt'
   )
   await assertOk(response, 'prompt')
+}
+
+/**
+ * Best-effort teardown of an abandoned attempt: stop the run server-side
+ * (`/interrupt`; V2 has no `/abort`) and then drop the session. Never throws —
+ * the caller is already handling the real failure.
+ */
+async function abandonSession(sessionId: string): Promise<void> {
+  const headers = { 'X-Api-Key': getApiKey() }
+  try {
+    const response = await opencodeFetch(
+      `${getOpenCodeBaseUrl()}/api/session/${sessionId}/interrupt`,
+      { method: 'POST', headers },
+      'session interrupt'
+    )
+    await assertOk(response, 'session interrupt')
+  } catch (err) {
+    console.warn(`[opencode] could not interrupt ${sessionId}: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  try {
+    const response = await opencodeFetch(
+      `${getOpenCodeBaseUrl()}/api/session/${sessionId}`,
+      { method: 'DELETE', headers },
+      'session delete'
+    )
+    await assertOk(response, 'session delete')
+  } catch (err) {
+    console.warn(`[opencode] could not delete ${sessionId}: ${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 
 async function pollForReply(sessionId: string): Promise<string> {
@@ -380,15 +428,19 @@ async function pollForReply(sessionId: string): Promise<string> {
 
   while (Date.now() < deadline) {
     const response = await opencodeFetch(
-      `${getOpenCodeBaseUrl()}/api/session/${sessionId}/message`,
+      `${getOpenCodeBaseUrl()}/api/session/${sessionId}/message?limit=50&order=desc`,
       { headers: { 'X-Api-Key': getApiKey() } },
       'message poll'
     )
     await assertOk(response, 'message poll')
     const data = (await response.json()) as { data: OpencodeMessage[] }
-    const latest = data.data[0]
+    // Newest first, but the newest entries are the turn's `idle`/`system`/
+    // `synthetic`/`user` rows — the reply is the newest *assistant* entry.
+    const latest = data.data.find(message => message.type === 'assistant')
 
-    if (latest?.type === 'assistant' && latest.finish) {
+    // No finish yet (still being written) or more tool rounds (`tool-calls`)
+    // means keep polling; any other finish is terminal.
+    if (latest?.finish && latest.finish !== 'tool-calls') {
       if (latest.finish === 'error') {
         throw new Error(`opencode generation failed: ${latest.error?.message ?? 'unknown error'}`)
       }
