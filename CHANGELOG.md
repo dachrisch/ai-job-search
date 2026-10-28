@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.6](https://github.com/dachrisch/ai-job-search/compare/v0.12.5...v0.12.6) (2026-10-28)
+
+
+### Bug Fixes
+
+* **deps:** update dependency pytest to v9.2.0 ([#211](https://github.com/dachrisch/ai-job-search/issues/211)) ([990e811](https://github.com/dachrisch/ai-job-search/commit/990e811d0e91061f16822990f43aad4d5b3863a9))
+
 ## [0.12.5](https://github.com/dachrisch/ai-job-search/compare/v0.12.4...v0.12.5) (2026-10-26)
 
 
