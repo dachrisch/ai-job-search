@@ -123,14 +123,14 @@ class JobData(BaseModel):
     title: str = Field(description="Job title (minimum 10 characters)")
     company: str = Field(description="Hiring company name")
     description: str = Field(description="Job description text (minimum 50 characters)")
-    url: str = Field(description="Direct HTTPS URL to the job listing")
+    url: str = Field(description="Direct HTTP(S) URL to the job listing")
     location: str = Field(description="Job location or 'Remote'")
     salary: Optional[str] = Field(
         default=None,
         description="Salary range if published by the job board",
     )
     source_url: str = Field(
-        description="HTTPS URL of the job board page that was scraped",
+        description="HTTP(S) URL of the job board page that was scraped",
     )
 
     @field_validator("title")
@@ -160,10 +160,12 @@ class JobData(BaseModel):
 
     @field_validator("url", "source_url")
     @classmethod
-    def url_must_be_https(cls, v: str) -> str:
-        if not v.startswith("https://"):
+    def url_must_be_http(cls, v: str) -> str:
+        # http:// is accepted: discovery can hand over http boards, and a job
+        # whose source page was http is still a real job (the site redirects).
+        if not v.startswith(("http://", "https://")):
             raise ValueError(
-                f"URL must begin with 'https://', got: {v!r}"
+                f"URL must begin with 'http://' or 'https://', got: {v!r}"
             )
         return v
 
@@ -234,9 +236,12 @@ class CompanyCrawlRequest(BaseModel):
 
     @field_validator("url")
     @classmethod
-    def url_must_be_https(cls, v: str) -> str:
-        if not v.startswith("https://"):
-            raise ValueError("URL must start with https://")
+    def url_must_be_http(cls, v: str) -> str:
+        # http:// is accepted: discovery hands over whatever SearXNG indexed
+        # (job boards are regularly linked over http and redirect to https),
+        # and rejecting it dropped whole companies from a search.
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
         return v
 
 
