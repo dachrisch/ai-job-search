@@ -12,6 +12,14 @@ from job_crawler.adapters.base import CareerSiteAdapter, AuthContext, RawPage, J
 _API_BASE = 'https://boards-api.greenhouse.io/v1/boards'
 _TAG_RE = re.compile(r'<[^>]+>')
 
+# Every host Greenhouse serves a public job board from. EU tenants live on
+# job-boards.eu.greenhouse.io and are served by the same JSON API.
+GREENHOUSE_HOSTS = frozenset({
+    'boards.greenhouse.io',
+    'job-boards.greenhouse.io',
+    'job-boards.eu.greenhouse.io',
+})
+
 
 def _company_slug(url: str) -> str:
     slug = urlparse(url).path.strip('/').split('/')[0]
@@ -28,7 +36,7 @@ class GreenhouseAdapter(CareerSiteAdapter):
     """Fetches jobs from Greenhouse's public JSON API."""
 
     def can_handle(self, url: str) -> bool:
-        return 'boards.greenhouse.io' in url
+        return urlparse(url).hostname in GREENHOUSE_HOSTS
 
     def fetch_page(
         self, url: str, keywords: str, auth_context: AuthContext, page_token: str | None

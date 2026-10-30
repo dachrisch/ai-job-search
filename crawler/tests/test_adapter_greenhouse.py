@@ -46,6 +46,16 @@ def test_does_not_handle_other_domains(adapter):
     assert not adapter.can_handle('https://jobs.lever.co/stripe')
     assert not adapter.can_handle('https://example.com/careers')
 
+def test_handles_job_boards_host(adapter):
+    # Greenhouse serves many boards from job-boards.greenhouse.io.
+    assert adapter.can_handle('https://job-boards.greenhouse.io/celonis')
+
+def test_handles_eu_job_boards_host(adapter):
+    # Live searches surfaced job-boards.eu.greenhouse.io URLs; they fell through
+    # to the generic spider and produced department headings as job titles.
+    assert adapter.can_handle('https://job-boards.eu.greenhouse.io/idnow')
+    assert _company_slug('https://job-boards.eu.greenhouse.io/idnow') == 'idnow'
+
 def test_company_slug_raises_for_bare_domain():
     with pytest.raises(ValueError):
         _company_slug('https://boards.greenhouse.io')
