@@ -38,6 +38,12 @@ CRAWLER_PORT: int = int(os.getenv("CRAWLER_PORT", "8000"))
 # Design spec requires 15-30 seconds per site; default is 20.
 CRAWLER_TIMEOUT: int = int(os.getenv("CRAWLER_TIMEOUT", "20"))
 
+# Maximum seconds the crawler spends on a whole company career page, i.e. on
+# the worker process that drives one adapter/Scrapy run. Large ATS boards
+# (Anthropic, Databricks, Celonis) need minutes; at the old hardcoded 60 s the
+# worker was abandoned and the company produced no jobs at all.
+COMPANY_CRAWL_TIMEOUT: int = int(os.getenv("CRAWLER_COMPANY_CRAWL_TIMEOUT", "150"))
+
 # Maximum number of automatic retries for transient errors (5xx, connection
 # reset). Set to 0 to disable retries entirely.
 CRAWLER_MAX_RETRIES: int = int(os.getenv("CRAWLER_MAX_RETRIES", "2"))
