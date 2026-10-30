@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.9](https://github.com/dachrisch/ai-job-search/compare/v0.12.8...v0.12.9) (2026-10-30)
+
+
+### Bug Fixes
+
+* **api:** batch LLM job scoring so a large crawl does not time out ([42156a5](https://github.com/dachrisch/ai-job-search/commit/42156a5eb932ace342f0eebd6e9925cd3806829b))
+
 ## [0.12.8](https://github.com/dachrisch/ai-job-search/compare/v0.12.7...v0.12.8) (2026-10-30)
 
 
