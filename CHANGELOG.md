@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.12.8](https://github.com/dachrisch/ai-job-search/compare/v0.12.7...v0.12.8) (2026-10-30)
+
+
+### Bug Fixes
+
+* **api:** report found jobs and wait for in-flight crawls ([7fdced4](https://github.com/dachrisch/ai-job-search/commit/7fdced419ba201e9540292c0287af3340bdd3b74))
+* **crawler:** accept http company URLs and return 400 on invalid ones ([64cc79b](https://github.com/dachrisch/ai-job-search/commit/64cc79b008ef3d7733c339b6bae26a82a782f5fa))
+* **crawler:** route all Greenhouse job-board hosts through the adapter ([79bec9e](https://github.com/dachrisch/ai-job-search/commit/79bec9e7d740de17cdc93c172ac88681762efc14))
+* **crawler:** stop company crawls deadlocking on large result payloads ([981e309](https://github.com/dachrisch/ai-job-search/commit/981e3094c68148c66dcde629271b057642908805))
+* defects found by a live job search (crawler + search status) ([a8a62d0](https://github.com/dachrisch/ai-job-search/commit/a8a62d0b7d76c762d91381c0880918b73008f1b9))
+
 ## [0.12.7](https://github.com/dachrisch/ai-job-search/compare/v0.12.6...v0.12.7) (2026-10-29)
 
 
