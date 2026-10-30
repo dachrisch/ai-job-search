@@ -421,6 +421,10 @@ export const eventHandlers = {
       }
 
       const crawlerUrl = process.env.CRAWLER_SERVICE_URL || 'http://localhost:5000'
+      // Must outlast the crawler's own per-company budget
+      // (CRAWLER_COMPANY_CRAWL_TIMEOUT, default 150 s) — otherwise the API
+      // gives up on a crawl that is still working and the jobs are lost.
+      const crawlerTimeoutMs = Number(process.env.CRAWLER_REQUEST_TIMEOUT_MS || 200_000)
       const response = await axios.post(
         `${crawlerUrl}/crawler/crawl-company`,
         {
@@ -430,7 +434,7 @@ export const eventHandlers = {
           companyName: data.companyName,
           query: data.query,
         },
-        { timeout: 90000 }
+        { timeout: crawlerTimeoutMs }
       )
 
       const result = response.data
@@ -635,11 +639,15 @@ export const eventHandlers = {
       // nothing left to do, so evaluate and finish the search. Without this, a
       // session crawls all companies but stays stuck in "running" forever — the
       // completion signal otherwise only existed on the legacy jobs_scraped path.
-      const pendingCompanies = await CompanyModel.countDocuments({
+      // `crawling` counts as unfinished: crawls run concurrently, and treating
+      // an in-flight one as done finalised the search while its jobs were still
+      // being extracted — the late company_crawled was then dropped and the
+      // company stayed "crawling" forever.
+      const unfinishedCompanies = await CompanyModel.countDocuments({
         searchSessionId: session._id.toString(),
-        status: 'pending_crawl'
+        status: { $in: ['pending_crawl', 'crawling'] }
       })
-      if (isSessionActive(session) && pendingCompanies === 0) {
+      if (isSessionActive(session) && unfinishedCompanies === 0) {
         const totalStored = await JobModel.countDocuments({ searchSessionId: session._id })
         await addEvent('search_evaluation', { searchId: data.searchId, jobsFound: totalStored })
       }
@@ -667,6 +675,18 @@ export const eventHandlers = {
 
       // Fetch jobs from database
       const jobs = await JobModel.find({ _id: { $in: data.jobIds } })
+
+      // Record what this search found before scoring: foundJobs/iterationCount
+      // drive GET /searches/:id, and the crawl pipeline (companies ->
+      // company_crawled -> jobs_extracted) is the only path a search takes now.
+      // Only the legacy jobs_scraped path used to record them, so every live
+      // search reported 0 found. Recorded pre-scoring so a scoring failure
+      // still reports the jobs that were stored.
+      for (const jobId of data.jobIds) {
+        if (!session.foundJobs.includes(jobId)) session.foundJobs.push(jobId)
+      }
+      session.iterationCount += 1
+      await session.save()
 
       // Stream the stored jobs right away with unscored placeholders, so work
       // already done stays visible even if scoring stalls (issue #187). The

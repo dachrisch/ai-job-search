@@ -31,8 +31,54 @@ beforeEach(async () => {
 })
 
 describe('jobs_extracted handler (issue #187)', () => {
+  it('records the scored job ids on the session so status reports a real count', async () => {
+    const session = {
+      _id: 'sess1',
+      query: 'Product Manager in Munich',
+      jobsScored: 0,
+      foundJobs: [] as string[],
+      iterationCount: 0,
+      save: vi.fn(),
+    }
+    vi.mocked(SearchSessionModel.findById).mockResolvedValue(session as any)
+    vi.mocked(JobModel.find).mockResolvedValue(STORED_JOBS as any)
+    vi.mocked(JobModel.findByIdAndUpdate).mockResolvedValue({} as any)
+    vi.mocked(callLLMJson).mockResolvedValue({
+      scores: [
+        { jobId: 'job1', matchScore: 80, reasoning: 'fits' },
+        { jobId: 'job2', matchScore: 40, reasoning: 'partial' },
+      ],
+    } as any)
+
+    await eventHandlers.jobs_extracted({ searchId: 'sess1', jobIds: ['job1', 'job2'] }, MOCK_SSE)
+
+    expect(session.foundJobs).toEqual(['job1', 'job2'])
+    expect(session.iterationCount).toBe(1)
+    expect(session.save).toHaveBeenCalled()
+  })
+
+  it('records the found job ids before scoring, so a scoring failure still reports them', async () => {
+    const session = {
+      _id: 'sess1',
+      query: 'Product Manager in Munich',
+      jobsScored: 0,
+      foundJobs: [] as string[],
+      iterationCount: 0,
+      save: vi.fn(),
+    }
+    vi.mocked(SearchSessionModel.findById).mockResolvedValue(session as any)
+    vi.mocked(JobModel.find).mockResolvedValue(STORED_JOBS as any)
+    vi.mocked(callLLMJson).mockRejectedValue(new Error('opencode reply timed out'))
+
+    await eventHandlers.jobs_extracted({ searchId: 'sess1', jobIds: ['job1', 'job2'] }, MOCK_SSE)
+
+    expect(session.foundJobs).toEqual(['job1', 'job2'])
+    expect(session.iterationCount).toBe(1)
+    expect(session.jobsScored).toBe(0)
+  })
+
   it('broadcasts stored jobs immediately, even if scoring stalls', async () => {
-    const session = { _id: 'sess1', query: 'Product Manager in Munich', jobsScored: 0, save: vi.fn() }
+    const session = { _id: 'sess1', query: 'Product Manager in Munich', jobsScored: 0, foundJobs: [], iterationCount: 0, save: vi.fn() }
     vi.mocked(SearchSessionModel.findById).mockResolvedValue(session as any)
     vi.mocked(JobModel.find).mockResolvedValue(STORED_JOBS as any)
     vi.mocked(callLLMJson).mockReturnValue(new Promise(() => {}))

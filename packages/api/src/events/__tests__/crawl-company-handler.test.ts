@@ -74,6 +74,18 @@ describe('crawl_company handler', () => {
       expect(mockCompany.save).toHaveBeenCalled()
     })
   })
+
+  it('waits longer than the crawler\'s own per-company crawl budget', async () => {
+    vi.mocked(SearchSessionModel.findById).mockResolvedValue(MOCK_SESSION as any)
+    vi.mocked(axios.post).mockResolvedValue({ data: { jobs: [], unsupported: true, discoveredCompanies: [] } })
+
+    await eventHandlers.crawl_company(HANDLER_DATA, MOCK_SSE)
+
+    // The crawler itself allows COMPANY_CRAWL_TIMEOUT (150 s) per company;
+    // aborting the HTTP call sooner threw away results it would have returned.
+    const options = vi.mocked(axios.post).mock.calls[0][2] as any
+    expect(options.timeout).toBeGreaterThanOrEqual(150_000)
+  })
 })
 
 describe('company_crawled handler', () => {
