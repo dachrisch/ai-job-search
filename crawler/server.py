@@ -166,9 +166,12 @@ def crawl_company():
         req = CompanyCrawlRequest.model_validate(data)
     except ValidationError as exc:
         log.warning("Invalid company crawl request", extra={"errors": exc.errors()})
+        # include_context=False: pydantic puts the original ValueError object in
+        # ctx, which jsonify cannot serialise (it used to turn this 400 into a
+        # 500 for every non-HTTPS URL).
         return jsonify({
             'error': 'Request validation failed',
-            'detail': exc.errors(include_url=False),
+            'detail': exc.errors(include_url=False, include_context=False),
         }), 400
 
     set_request_id(req.search_id)

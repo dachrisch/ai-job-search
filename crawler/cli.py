@@ -2,6 +2,7 @@ import argparse
 import multiprocessing
 import socket
 import time
+from queue import Empty
 from collections import defaultdict
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
@@ -23,6 +24,12 @@ from resilience import (
 import config as _cfg
 
 log = get_logger(__name__)
+
+# Workers are started with spawn(), never fork(): the crawler service runs each
+# request on a Flask worker thread, and forking from a thread leaves the child
+# holding locks its parent thread owned — concurrent crawl requests hung until
+# the client timed out.
+_MP_CONTEXT = multiprocessing.get_context('spawn')
 
 # SPIDER_REGISTRY maps domain substring → spider class.
 # Checked in order; first match wins.  GenericJobSpider is the fallback.
@@ -397,8 +404,8 @@ def crawl_jobs(  # noqa: C901
 
         # Run the Scrapy crawl in a child process so the Twisted reactor starts
         # fresh on every request (ReactorNotRestartable otherwise).
-        queue: multiprocessing.Queue = multiprocessing.Queue()
-        worker = multiprocessing.Process(
+        queue = _MP_CONTEXT.Queue()
+        worker = _MP_CONTEXT.Process(
             target=_run_crawl_jobs_worker,
             args=(queue, active_sites, keywords, cfg.timeout, cfg.max_retries),
             daemon=True,
@@ -532,17 +539,38 @@ def crawl_company_jobs(
     )
 
     # Run in a child process so the Twisted reactor starts fresh every time.
-    queue: multiprocessing.Queue = multiprocessing.Queue()
-    worker = multiprocessing.Process(
+    result_queue = _MP_CONTEXT.Queue()
+    worker = _MP_CONTEXT.Process(
         target=_run_company_crawl_worker,
-        args=(queue, search_id, company_id, url, company_name, keywords),
+        args=(result_queue, search_id, company_id, url, company_name, keywords),
         daemon=True,
     )
     worker.start()
-    worker.join(timeout=60)
 
-    if not queue.empty():
-        result = queue.get_nowait()
+    # Read the result while the worker is still writing. A crawl result can be
+    # far larger than the OS pipe buffer (large ATS boards: 200+ jobs), so the
+    # child blocks in queue.put() until someone drains it — joining first
+    # deadlocked both sides until the timeout.
+    try:
+        result = result_queue.get(timeout=_cfg.COMPANY_CRAWL_TIMEOUT)
+    except Empty:
+        result = None
+
+    if worker.is_alive():
+        if result is None:
+            log.error(
+                "Company crawl worker exceeded timeout; terminating",
+                extra={
+                    "search_id": search_id,
+                    "company_id": company_id,
+                    "timeout_seconds": _cfg.COMPANY_CRAWL_TIMEOUT,
+                },
+            )
+        # Nothing to collect any more; never leave a worker running behind us.
+        worker.terminate()
+    worker.join(timeout=5)
+
+    if result is not None:
         log.info(
             "Company crawl succeeded",
             extra={
