@@ -45,6 +45,51 @@ function broadcastSessionStatus(session: any, sseManager: SSEManager): void {
   })
 }
 
+const DEFAULT_SCORING_BATCH_SIZE = 25
+
+/** Jobs per LLM scoring call (SCORING_BATCH_SIZE, default 25). */
+function scoringBatchSize(): number {
+  const fromEnv = Math.floor(Number(process.env.SCORING_BATCH_SIZE))
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_SCORING_BATCH_SIZE
+}
+
+function buildScoringPrompt(jobs: Array<{ _id: any; title: string; company: string; description: string; location: string }>, query: string): string {
+  const jobDetails = jobs
+    .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nDescription: ${j.description}\nLocation: ${j.location}`)
+    .join('\n---\n')
+
+  return `Score these jobs by how well they match the search query: "${query}".
+For each job, provide:
+1. jobId (exact match from the list)
+2. matchScore (0-100)
+3. reasoning (brief explanation)
+
+Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "reasoning": "..." }] }
+
+Jobs to score:
+${jobDetails}`
+}
+
+/** Scores one batch; one call, one prompt/result pipeline event pair. */
+async function scoreJobBatch(
+  jobs: Array<{ _id: any; title: string; company: string; description: string; location: string }>,
+  query: string,
+  searchId: string,
+  batchIndex: number,
+  batchCount: number,
+  sseManager?: SSEManager
+): Promise<any[]> {
+  const prompt = buildScoringPrompt(jobs, query)
+  const label = batchCount > 1 ? ` (batch ${batchIndex}/${batchCount})` : ''
+
+  await emitPipelineEvent(searchId, 'scoring_prompt', 'prompt', `LLM scoring prompt${label}`, prompt, { jobCount: jobs.length, batch: batchIndex, batchCount }, sseManager)
+  const parsed = await callLLMJson<{ scores: any[] }>(prompt)
+  const scores = parsed.scores || []
+  await emitPipelineEvent(searchId, 'scoring_result', 'response', `AI scored ${scores.length} jobs${label}`, undefined, { scoredCount: scores.length, batch: batchIndex, batchCount }, sseManager)
+
+  return scores
+}
+
 export const eventHandlers = {
   search_started: async (data: { searchId: string; userId: string; query: string }, sseManager: SSEManager) => {
     try {
@@ -710,28 +755,41 @@ export const eventHandlers = {
         }
       })
 
-      // Build prompt for Claude to score jobs
-      const jobDetails = jobs
-        .map(j => `JobID: ${j._id}\nTitle: ${j.title}\nCompany: ${j.company}\nDescription: ${j.description}\nLocation: ${j.location}`)
-        .join('\n---\n')
+      // Score in bounded batches. A single call for a large crawl (353 jobs in
+      // a live search) produced a ~48k-token prompt that took 144 s against the
+      // paid model — every model in the chain blew the 60 s reply budget before
+      // that. Batches keep each call inside the budget and make a genuine hang
+      // visible in seconds instead of minutes.
+      const batchSize = scoringBatchSize()
+      const batches: typeof jobs[] = []
+      for (let i = 0; i < jobs.length; i += batchSize) {
+        batches.push(jobs.slice(i, i + batchSize))
+      }
 
-      const prompt = `Score these jobs by how well they match the search query: "${session.query}".
-For each job, provide:
-1. jobId (exact match from the list)
-2. matchScore (0-100)
-3. reasoning (brief explanation)
+      const batchResults = await Promise.allSettled(
+        batches.map((batch, index) =>
+          scoreJobBatch(batch, session.query, data.searchId, index + 1, batches.length, sseManager)
+        )
+      )
 
-Return JSON with structure: { "scores": [{ "jobId": "...", "matchScore": 0, "reasoning": "..." }] }
+      const failures = batchResults.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected'
+      )
+      // Preserve the old contract: a scoring run that produced nothing fails
+      // the search. Partial success is kept — the jobs are real and scored.
+      if (batches.length > 0 && failures.length === batches.length) {
+        throw failures[0].reason
+      }
+      if (failures.length > 0) {
+        console.warn(
+          `   ⚠️  Scoring failed for ${failures.length}/${batches.length} batches; keeping the rest: ` +
+            failures.map(f => (f.reason instanceof Error ? f.reason.message : String(f.reason))).join('; ')
+        )
+      }
 
-Jobs to score:
-${jobDetails}`
-
-      // Score jobs via opencode; a failure bubbles up to search_failed
-      await emitPipelineEvent(data.searchId, 'scoring_prompt', 'prompt', 'LLM scoring prompt', prompt, { jobCount: data.jobIds.length }, sseManager)
-      const parsed = await callLLMJson<{ scores: any[] }>(prompt)
-      const scores = parsed.scores || []
-
-      await emitPipelineEvent(data.searchId, 'scoring_result', 'response', `AI scored ${scores.length} jobs`, undefined, { scoredCount: scores.length }, sseManager)
+      const scores = batchResults.flatMap(result =>
+        result.status === 'fulfilled' ? result.value : []
+      )
 
       // Update each job with score, counting only scores that actually match a
       // submitted job so jobsScored reflects reality (B2).
