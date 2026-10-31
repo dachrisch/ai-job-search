@@ -114,7 +114,11 @@ export const eventHandlers = {
       const parsedQuery = parseJobQuery(data.query)
       const scope = parsedQuery.location ? ` · Location: ${parsedQuery.location} (+${parsedQuery.radius} km)` : ''
       await emitPipelineEvent(data.searchId, 'tier1_search', 'info', 'Querying Arbeitsagentur API', `Keywords: "${parsedQuery.keywords}"${scope}`, { ...parsedQuery }, sseManager)
-      const sourceManager = new SourceManager([new ArbeitsagenturSource()])
+      const sources: any[] = [new ArbeitsagenturSource()]
+      if (process.env.ENABLE_TIER3) {
+        sources.push(new (await import('../sources/personio-source.js')).PersonioSource())
+      }
+      const sourceManager = new SourceManager(sources)
       const sourceResult = await sourceManager.search({ ...parsedQuery, raw: data.query })
       for (const sourceError of sourceResult.errors) {
         console.warn(`   ⚠️  Source error: ${sourceError.message}`)
@@ -221,6 +225,8 @@ export const eventHandlers = {
         hiddenGemScore?: number
         sizeBand?: 'small' | 'medium' | 'large' | 'unknown'
         sizeSignals?: string[]
+        atsVendor?: string
+        careersUrl?: string
       }>
       userQuery: string
     },
@@ -259,7 +265,8 @@ export const eventHandlers = {
               sizeBand: company.sizeBand,
               sizeSignals: company.sizeSignals,
               status: 'pending_crawl',
-              crawlAttempts: 0
+              crawlAttempts: 0,
+            ...( (company.atsVendor !== undefined || company.careersUrl !== undefined) && { atsVendor: company.atsVendor, careersUrl: company.careersUrl, lastVerifiedAt: new Date() } )
             }
           },
           { upsert: true, new: true }

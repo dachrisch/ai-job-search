@@ -9,6 +9,7 @@ export interface ParsedJobQuery {
   keywords: string
   location?: string
   radius?: number // km
+  remote?: boolean // true when the user asked for remote/homeoffice work
 }
 
 const DEFAULT_RADIUS_KM = 25
@@ -93,20 +94,53 @@ export function expandTitleVariants(keywords: string): string[] {
 export function parseJobQuery(raw: string): ParsedJobQuery {
   const query = raw.trim().replace(/\s+/g, ' ')
 
+  const parsed: ParsedJobQuery = {}
+
+  // 1. Remote pattern: strip remote/homeoffice indicators from keywords
+  const REMOTE_PATTERN = /\b(remote|homeoffice|100\s*%\s*remote)\b/i
+  if (REMOTE_PATTERN.test(query)) {
+    parsed.remote = true
+    parsed.keywords = query.replace(REMOTE_PATTERN, '').replace(/\s+/g, ' ').trim()
+  } else {
+    parsed.keywords = query
+  }
+
   const prep = query.match(PREPOSITION_PATTERN)
-  if (prep && prep[1].trim() && prep[2].trim()) return withLocation(prep[1], prep[2])
+  if (prep && prep[1].trim() && prep[2].trim()) {
+    const keywords = parsed.remote
+      ? prep[1].replace(REMOTE_PATTERN, '').replace(/\s+/g, ' ').trim()
+      : prep[1].trim()
+    parsed.keywords = keywords
+    parsed.location = normalizePlace(prep[2].trim())
+    parsed.radius = DEFAULT_RADIUS_KM
+    return parsed
+  }
 
   const comma = query.match(COMMA_PATTERN)
-  if (comma && comma[1].trim() && comma[2].trim()) return withLocation(comma[1], comma[2])
+  if (comma && comma[1].trim() && comma[2].trim()) {
+    const keywords = parsed.remote
+      ? comma[1].replace(REMOTE_PATTERN, '').replace(/\s+/g, ' ').trim()
+      : comma[1].trim()
+    parsed.keywords = keywords
+    parsed.location = normalizePlace(comma[2].trim())
+    parsed.radius = DEFAULT_RADIUS_KM
+    return parsed
+  }
 
   // A known city as the trailing word(s), without a preposition: "Produktmanager München".
   const words = query.split(' ')
   for (let take = Math.min(3, words.length - 1); take >= 1; take--) {
     const place = words.slice(-take).join(' ')
     if (CITY_ALIASES[place.toLowerCase()]) {
-      return withLocation(words.slice(0, -take).join(' '), place)
+      const keywords = parsed.remote
+        ? words.slice(0, -take).join(' ').replace(REMOTE_PATTERN, '').replace(/\s+/g, ' ').trim()
+        : words.slice(0, -take).join(' ')
+      parsed.keywords = keywords
+      parsed.location = normalizePlace(place.trim())
+      parsed.radius = DEFAULT_RADIUS_KM
+      return parsed
     }
   }
 
-  return { keywords: query }
+  return parsed
 }

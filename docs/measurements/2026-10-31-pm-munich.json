@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-31",
+  "query": "Product Manager in Munich",
+  "totalJobs": 30,
+  "validJobs": 10,
+  "scoredJobs": 30,
+  "perSource": {
+    "arbeitsagentur": {
+      "total": 30,
+      "scored": 30,
+      "valid": 10
+    }
+  },
+  "droppedReasons": {
+    "title": 0,
+    "location": 0,
+    "age": 20,
+    "blocklisted": 0
+  },
+  "filterRules": {
+    "pmTitleRegex": "/^(Product Manager|Product Owner|Product Lead|Product Director|Senior Product Manager|Lead Product Manager|Product Manager.*\\([^)]*\\)|Product Manager.*\\([^)]*\\)|Product Manager[^)]*$)/i",
+    "munichLocation": "Munich ≤25km OR job.remote === \"full\"",
+    "maxAgeDays": 180,
+    "blocklistedCompanies": [
+      "alfatraining"
+    ]
+  }
+}
