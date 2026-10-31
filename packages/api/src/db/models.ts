@@ -67,6 +67,9 @@ const companySchema = new Schema<Company>(
     hiddenGemScore: { type: Number, min: 0, max: 100 },
     sizeBand: { type: String, enum: ['small', 'medium', 'large', 'unknown'] },
     sizeSignals: [String],
+    atsVendor: { type: String },
+    careersUrl: { type: String },
+    lastVerifiedAt: { type: Date },
   },
   { timestamps: true }
 )
