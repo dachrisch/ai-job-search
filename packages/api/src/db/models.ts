@@ -26,6 +26,7 @@ const jobSchema = new Schema<Job>({
   keywordMatchScore: { type: Number, min: 0, max: 1 },
   keywordMatchReasoning: { type: String },
   extractedAt: { type: Date, required: true },
+  publishedAt: { type: String }, // first-publication date from the source (ISO)
   scoredAt: { type: Date },
   scoredVersion: { type: Number, required: true, default: 0 },
 })
