@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.10](https://github.com/dachrisch/ai-job-search/compare/v0.12.9...v0.12.10) (2026-11-01)
+
+
+### Bug Fixes
+
+* **deps:** update dependency node to v26 ([8bf6747](https://github.com/dachrisch/ai-job-search/commit/8bf67470f26f5f045a1c25415e09620037c79da9))
+* **deps:** update dependency node to v26 ([4a8898a](https://github.com/dachrisch/ai-job-search/commit/4a8898ac45aaa82bef69f99ae7921a61f8c4a909))
+
 ## [0.12.9](https://github.com/dachrisch/ai-job-search/compare/v0.12.8...v0.12.9) (2026-10-30)
 
 
