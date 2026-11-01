@@ -51,6 +51,13 @@ describe('parseJobQuery', () => {
     expect(parseJobQuery('Product Manager in')).toEqual({ keywords: 'Product Manager in' })
   })
 
+  it('recognizes remote/homeoffice patterns, strips them, and sets remote', () => {
+    expect(parseJobQuery('Product Manager remote')).toEqual({ keywords: 'Product Manager', remote: true })
+    expect(parseJobQuery('Product Manager homeoffice')).toEqual({ keywords: 'Product Manager', remote: true })
+    expect(parseJobQuery('Product Manager 100 % remote')).toEqual({ keywords: 'Product Manager', remote: true })
+    expect(parseJobQuery('Senior Backend Engineer remote in Munich')).toEqual({ keywords: 'Senior Backend Engineer', location: 'München', radius: 25, remote: true })
+  })
+
   it('trims whitespace', () => {
     expect(parseJobQuery('  Product Manager   in   Munich  ')).toEqual({
       keywords: 'Product Manager',

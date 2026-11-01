@@ -16,6 +16,7 @@ export interface Job {
   location: string
   sourceUrl: string
   discoveredAt: Date
+  publishedAt?: string
   matchScore?: number
   matchReasoning?: string
   searchSessionId: string
@@ -44,6 +45,9 @@ export interface Company {
   status: 'pending_crawl' | 'crawling' | 'crawled' | 'failed' | 'unsupported'
   crawlAttempts: number
   lastCrawlTime?: Date
+  atsVendor?: string
+  careersUrl?: string
+  lastVerifiedAt?: Date
   createdAt: Date
   updatedAt: Date
 }

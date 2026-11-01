@@ -26,6 +26,7 @@ interface Posting {
   gehaltsspanneVon?: number
   gehaltsspanneBis?: number
   homeofficemoeglich?: boolean
+  homeofficeprozent?: number
   datumErsteVeroeffentlichung?: string
   stellenlokationen?: Array<{ adresse?: { ort?: string; region?: string; plz?: string } }>
 }
@@ -78,14 +79,17 @@ export class ArbeitsagenturSource implements JobSource {
   }
 
   private async fetchPage(query: JobQuery, page: number): Promise<Posting[]> {
+    const params = {
+      was: query.keywords,
+      ...(query.location ? { wo: query.location } : {}),
+      ...(query.radius ? { umkreis: query.radius } : {}),
+      ...(query.remote ? { homeoffice: 'prozentual_0;nv_true' } : {}),
+      size: PAGE_SIZE,
+      page,
+    }
+    
     const response = await axios.get(API_URL, {
-      params: {
-        was: query.keywords,
-        ...(query.location ? { wo: query.location } : {}),
-        ...(query.radius ? { umkreis: query.radius } : {}),
-        size: PAGE_SIZE,
-        page,
-      },
+      params,
       headers: { 'X-API-Key': API_KEY },
       timeout: TIMEOUT_MS,
     })
@@ -100,6 +104,16 @@ export class ArbeitsagenturSource implements JobSource {
     const location = p.stellenlokationen?.[0]?.adresse?.ort ?? 'Deutschland'
     const url = DETAIL_BASE + encodeURIComponent(p.referenznummer)
 
+    const remote: 'full' | 'hybrid' | 'unknown' = (() => {
+      if (p.homeofficeprozent !== undefined) {
+        return p.homeofficeprozent >= 100 ? 'full' : 'hybrid'
+      }
+      if (p.homeofficemoeglich === true) {
+        return 'hybrid'
+      }
+      return 'unknown'
+    })()
+
     return {
       title: p.stellenangebotsTitel,
       company,
@@ -111,6 +125,7 @@ export class ArbeitsagenturSource implements JobSource {
       sourceUrl: BOARD_URL,
       // Carried through for the validity filter (stale-posting cutoff).
       publishedAt: p.datumErsteVeroeffentlichung,
+      remote,
     }
   }
 

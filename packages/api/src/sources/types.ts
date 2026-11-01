@@ -19,6 +19,7 @@ export interface SourceJob {
   salary?: string
   sourceUrl: string // identifier of the producing source, e.g. "arbeitsagentur"
   publishedAt?: string // first-publication date when the source provides one (ISO)
+  remote?: 'full' | 'hybrid' | 'unknown'
 }
 
 /** The result of querying a single source. Failures are returned, not thrown. */

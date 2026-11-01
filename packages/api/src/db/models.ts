@@ -26,6 +26,7 @@ const jobSchema = new Schema<Job>({
   keywordMatchScore: { type: Number, min: 0, max: 1 },
   keywordMatchReasoning: { type: String },
   extractedAt: { type: Date, required: true },
+  publishedAt: { type: String }, // first-publication date from the source (ISO)
   scoredAt: { type: Date },
   scoredVersion: { type: Number, required: true, default: 0 },
 })
@@ -66,6 +67,9 @@ const companySchema = new Schema<Company>(
     hiddenGemScore: { type: Number, min: 0, max: 100 },
     sizeBand: { type: String, enum: ['small', 'medium', 'large', 'unknown'] },
     sizeSignals: [String],
+    atsVendor: { type: String },
+    careersUrl: { type: String },
+    lastVerifiedAt: { type: Date },
   },
   { timestamps: true }
 )
