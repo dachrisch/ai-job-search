@@ -125,7 +125,7 @@ beforeEach(async () => {
 
 // Helper to simulate a 404 for a given path
 function mock404(path: string): void {
-  axiosMock.mockImplementation((url: string | any, config?: any) => {
+  ;(axiosMock as any).mockImplementation((url: string | any, config?: any) => {
     const urlStr = typeof url === 'string' ? url : url.href ?? ''
     if (urlStr.endsWith(path)) {
       return Promise.reject(new Error('404 Not Found'))
@@ -137,7 +137,7 @@ function mock404(path: string): void {
 describe('detectATS', () => {
   // Helper to mock axios for a specific domain and path
   const mockPaths = (domain: string, fixtures: Record<string, string>): void => {
-    axiosMock.mockImplementation((url: string | any, config?: any) => {
+    ;(axiosMock as any).mockImplementation((url: string | any, config?: any) => {
       const urlStr = typeof url === 'string' ? url : url.href ?? ''
       // URL is https://{domain}{path}
       for (const [path, html] of Object.entries(fixtures)) {

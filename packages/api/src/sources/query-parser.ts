@@ -94,7 +94,7 @@ export function expandTitleVariants(keywords: string): string[] {
 export function parseJobQuery(raw: string): ParsedJobQuery {
   const query = raw.trim().replace(/\s+/g, ' ')
 
-  const parsed: ParsedJobQuery = {}
+  const parsed: ParsedJobQuery = { keywords: '' }
 
   // 1. Remote pattern: strip remote/homeoffice indicators from keywords
   const REMOTE_PATTERN = /\b(remote|homeoffice|100\s*%\s*remote)\b/i
