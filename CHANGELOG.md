@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.13](https://github.com/dachrisch/ai-job-search/compare/v0.12.12...v0.12.13) (2026-11-05)
+
+
+### Bug Fixes
+
+* **deps:** update dependency jsdom to v31 ([#237](https://github.com/dachrisch/ai-job-search/issues/237)) ([bab431c](https://github.com/dachrisch/ai-job-search/commit/bab431c550afc267080c7c8d2dc62b5bf0edc980))
+
 ## [0.12.12](https://github.com/dachrisch/ai-job-search/compare/v0.12.11...v0.12.12) (2026-11-05)
 
 
