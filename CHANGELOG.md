@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.17](https://github.com/dachrisch/ai-job-search/compare/v0.12.16...v0.12.17) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @testing-library/jest-dom to v8 ([#245](https://github.com/dachrisch/ai-job-search/issues/245)) ([053666d](https://github.com/dachrisch/ai-job-search/commit/053666d2a5a0118c8295adbe0d3c3f726508444c))
+
 ## [0.12.16](https://github.com/dachrisch/ai-job-search/compare/v0.12.15...v0.12.16) (2026-11-16)
 
 
