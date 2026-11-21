@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.20](https://github.com/dachrisch/ai-job-search/compare/v0.12.19...v0.12.20) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update dependency mongodb-memory-server to v11.4.0 ([#251](https://github.com/dachrisch/ai-job-search/issues/251)) ([6d8febe](https://github.com/dachrisch/ai-job-search/commit/6d8febe089fad10a9ce4433b0cef7028e06dcbe6))
+
 ## [0.12.19](https://github.com/dachrisch/ai-job-search/compare/v0.12.18...v0.12.19) (2026-11-21)
 
 
